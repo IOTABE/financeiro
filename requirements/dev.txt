@@ -1,0 +1,9 @@
+-r base.txt
+pytest>=8,<9
+pytest-django>=4.9,<5
+factory-boy>=3.3,<4
+coverage>=7,<8
+ruff>=0.8,<1
+black>=24,<26
+pip-audit>=2.7,<3
+bandit>=1.7,<2

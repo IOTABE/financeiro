@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Primeiros passos — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Onboarding</p>
+      <h1>Seu caminho até o plano</h1>
+      <p class="muted">{{ done_steps }} de {{ total_steps }} passos concluídos.</p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'core:dashboard' %}">Voltar ao início</a>
+  </header>
+
+  <section class="glass-card onboarding-card">
+    <div class="progress progress--lg" aria-hidden="true">
+      <span style="width: {{ progress }}%"></span>
+    </div>
+    <p class="muted">{{ progress }}% concluído</p>
+  </section>
+
+  <section class="stack">
+    {% for step in steps %}
+      <article class="card step-card {% if step.done %}step-card--done{% endif %}">
+        <span class="step-card__mark" aria-hidden="true">{% if step.done %}✓{% else %}{{ forloop.counter }}{% endif %}</span>
+        <div class="step-card__body">
+          <h2>{{ step.label }}</h2>
+          <p class="muted">
+            {% if step.key == "profile" %}
+              Renda líquida, despesas essenciais e mínimo existencial.
+            {% elif step.key == "account" %}
+              Uma conta corrente, poupança ou carteira para vincular lançamentos.
+            {% elif step.key == "transaction" %}
+              Registre uma receita ou despesa para o mês começar a fazer sentido.
+            {% elif step.key == "debt" %}
+              Cadastre cartão, empréstimo ou parcelado para calcular o comprometimento.
+            {% elif step.key == "plan" %}
+              Gere o plano com ordem de pagamento, calendário e comparação de estratégias.
+            {% endif %}
+          </p>
+        </div>
+        <div class="step-card__action">
+          {% if step.done %}
+            <span class="badge badge--healthy">Concluído</span>
+          {% else %}
+            {% if step.key == "profile" %}
+              <a class="btn btn-primary" href="{% url 'accounts:profile' %}">Completar</a>
+            {% elif step.key == "account" %}
+              <a class="btn btn-primary" href="{% url 'finance:account_create' %}">Criar conta</a>
+            {% elif step.key == "transaction" %}
+              <a class="btn btn-primary" href="{% url 'finance:transaction_create' %}">Registrar</a>
+            {% elif step.key == "debt" %}
+              <a class="btn btn-primary" href="{% url 'debts:create' %}">Cadastrar</a>
+            {% elif step.key == "plan" %}
+              <a class="btn btn-primary" href="{% url 'plans:current' %}">Gerar plano</a>
+            {% endif %}
+          {% endif %}
+        </div>
+      </article>
+    {% endfor %}
+  </section>
+
+  {% if progress == 100 %}
+    <section class="cta-band glass">
+      <div>
+        <p class="eyebrow">Tudo pronto</p>
+        <h2>Seu diagnóstico está completo.</h2>
+        <p class="muted">O próximo passo é gerar o plano de quitação (Fase 3).</p>
+      </div>
+      <a class="btn btn-primary btn-lg" href="{% url 'core:dashboard' %}">Ver diagnóstico</a>
+    </section>
+  {% endif %}
+{% endblock %}

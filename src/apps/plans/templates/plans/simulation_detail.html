@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}{{ simulation.name }} — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Simulação</p>
+      <h1>{{ simulation.name }}</h1>
+      <p class="muted">
+        {{ simulation.get_kind_display }} · criada em {{ simulation.created_at|date:"d/m/Y H:i" }}
+      </p>
+    </div>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{% url 'plans:simulator' %}">Nova simulação</a>
+      <a class="btn btn-quiet" href="{% url 'plans:current' %}">Voltar ao plano</a>
+    </div>
+  </header>
+
+  <section class="compare-grid">
+    <article class="card">
+      <p class="eyebrow">Cenário atual</p>
+      <h2>Sem mudanças</h2>
+      <p class="stat__value">{{ baseline.months|default:"—" }} meses</p>
+      <p class="muted">Juros: {{ baseline.total_interest|brl }}</p>
+      <p class="muted">Total pago: {{ baseline.total_paid|brl }}</p>
+      <span class="status {% if baseline.status == 'ok' %}status--paid{% else %}status--late{% endif %}">
+        {% if baseline.status == "ok" %}Viável{% else %}Revisar{% endif %}
+      </span>
+    </article>
+
+    <article class="glass-card">
+      <p class="eyebrow">Com o cenário</p>
+      <h2>{{ simulation.name }}</h2>
+      <p class="stat__value">{{ scenario.months|default:"—" }} meses</p>
+      <p class="muted">Juros: {{ scenario.total_interest|brl }}</p>
+      <p class="muted">Total pago: {{ scenario.total_paid|brl }}</p>
+      <p class="muted">Disponível: {{ delta.monthly_available|brl }}</p>
+      <span class="status {% if scenario.status == 'ok' %}status--paid{% else %}status--late{% endif %}">
+        {% if scenario.status == "ok" %}Viável{% else %}Revisar{% endif %}
+      </span>
+    </article>
+  </section>
+
+  <section class="card">
+    <div class="card__header">
+      <h2>Impacto</h2>
+      {% if delta.months is not None %}
+        <span class="badge {% if delta.months <= 0 %}badge--healthy{% else %}badge--warning{% endif %}">
+          {% if delta.months > 0 %}+{% endif %}{{ delta.months }} mês(es)
+        </span>
+      {% endif %}
+    </div>
+    <p class="stat__value">{{ delta.interest_saved|brl }}</p>
+    <p class="muted">
+      {% if delta.interest_saved and delta.interest_saved != "0.00" %}
+        de juros economizados no cenário simulado.
+      {% else %}
+        Compare os totais acima para decidir.
+      {% endif %}
+    </p>
+    {% if scenario.warnings %}
+      <div class="alerts">
+        {% for warning in scenario.warnings %}
+          <div class="alert alert--{% if warning.severity == 'critical' %}critical{% elif warning.severity == 'warning' %}warning{% else %}info{% endif %}">
+            <strong>{{ warning.code }}</strong>
+            <span>{{ warning.message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <div class="form-actions">
+      <form method="post" action="{% url 'plans:apply_simulation' simulation.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">Transformar em plano</button>
+      </form>
+      <a class="btn btn-quiet" href="{% url 'plans:simulator' %}">Testar outro cenário</a>
+    </div>
+    <p class="muted">
+      Aplicar transforma este cenário no plano ativo, com o rótulo "{{ simulation.name }}".
+      Para voltar aos dados atuais, use Recalcular no plano ou gere um novo plano.
+    </p>
+  </section>
+{% endblock %}

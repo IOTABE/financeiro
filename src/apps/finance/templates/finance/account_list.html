@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Contas — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Onde o dinheiro fica</p>
+      <h1>Contas</h1>
+      <p class="muted">Contas, carteiras e cartões usados nos lançamentos.</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'finance:account_create' %}">Nova conta</a>
+  </header>
+
+  {% if accounts %}
+    <section class="card table-wrap">
+      <table class="table">
+        <caption class="sr-only">Contas cadastradas</caption>
+        <thead>
+          <tr>
+            <th scope="col">Nome</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="num">Saldo inicial</th>
+            <th scope="col"><span class="sr-only">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for account in accounts %}
+            <tr>
+              <td><strong>{{ account.name }}</strong></td>
+              <td>{{ account.get_type_display }}</td>
+              <td>
+                <span class="status {% if account.archived_at %}status--canceled{% else %}status--paid{% endif %}">
+                  {% if account.archived_at %}Arquivada{% else %}Ativa{% endif %}
+                </span>
+              </td>
+              <td class="num">{{ account.opening_balance|brl }}</td>
+              <td>
+                <div class="row-actions">
+                  <a href="{% url 'finance:account_update' account.pk %}">Editar</a>
+                  {% if not account.archived_at %}
+                    <form method="post" action="{% url 'finance:account_archive' account.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="link-button">Arquivar</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% else %}
+    <section class="glass-card empty-state">
+      <p class="eyebrow">Comece por aqui</p>
+      <h2>Nenhuma conta cadastrada</h2>
+      <p class="muted">Crie uma conta para vincular receitas, despesas e dívidas.</p>
+      <a class="btn btn-primary" href="{% url 'finance:account_create' %}">Criar conta</a>
+    </section>
+  {% endif %}
+{% endblock %}

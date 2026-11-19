@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}{{ debt.nickname|default:debt.creditor }} — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">{{ debt.get_type_display }}</p>
+      <h1>{{ debt.nickname|default:debt.creditor }}</h1>
+      <p class="muted">
+        {{ debt.creditor }} · vence no dia {{ debt.due_day }}
+        <span class="status status--{{ debt.status }}">{{ debt.get_status_display }}</span>
+      </p>
+    </div>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{% url 'debts:update' debt.pk %}">Editar</a>
+      <a class="btn btn-quiet" href="{% url 'debts:list' %}">Voltar</a>
+    </div>
+  </header>
+
+  <section class="stats-grid">
+    <article class="card stat">
+      <p class="stat__label">Saldo devedor</p>
+      <p class="stat__value">{{ debt.current_balance|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Taxa mensal</p>
+      <p class="stat__value">{{ debt.monthly_rate|percent }} a.m.</p>
+      {% if debt.annual_rate %}
+        <p class="stat__hint">{{ debt.annual_rate|percent }} a.a. efetiva</p>
+      {% endif %}
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Parcela mínima</p>
+      <p class="stat__value">{{ debt.minimum_payment|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Juros no mês</p>
+      <p class="stat__value">{{ debt.interest_at_minimum|brl }}</p>
+    </article>
+  </section>
+
+  {% if debt.has_negative_amortization %}
+    <div class="alert alert--critical" role="alert">
+      <strong>Amortização negativa</strong>
+      <span>A parcela mínima não cobre os juros. O saldo cresce mesmo pagando o mínimo.</span>
+    </div>
+  {% endif %}
+
+  <div class="detail-grid">
+    <section class="card">
+      <div class="card__header">
+        <h2>Registrar pagamento</h2>
+      </div>
+      <form method="post" action="{% url 'debts:pay' debt.pk %}" novalidate class="form">
+        {% csrf_token %}
+        {{ payment_form.idempotency_key }}
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=payment_form.amount %}
+          {% include "partials/field.html" with field=payment_form.paid_at %}
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=payment_form.kind %}
+          {% include "partials/field.html" with field=payment_form.note %}
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Registrar pagamento</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="card__header">
+        <h2>Histórico</h2>
+        <span class="badge badge--neutral">{{ payments|length }}</span>
+      </div>
+      {% if payments %}
+        <ul class="entity-list">
+          {% for payment in payments %}
+            <li class="entity-row">
+              <span class="entity-row__main">
+                <strong>{{ payment.amount|brl }}</strong>
+                <small>
+                  {{ payment.paid_at|date:"d/m/Y" }} · {{ payment.get_kind_display }}
+                  {% if payment.interest_amount %} · juros {{ payment.interest_amount|brl }}{% endif %}
+                </small>
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nenhum pagamento registrado ainda.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

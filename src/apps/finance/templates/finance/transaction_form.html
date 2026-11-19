@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Lançamento</p>
+      <h1>{{ title }}</h1>
+      <p class="muted">
+        {% if mode == "installment" %}
+          A compra será dividida em parcelas pendentes, mês a mês.
+        {% else %}
+          Registre uma receita ou despesa. Você pode editar depois.
+        {% endif %}
+      </p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'finance:transactions' %}">Voltar</a>
+  </header>
+
+  <section class="card form-card">
+    {% if form.non_field_errors %}
+      <div class="alert alert--critical" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" novalidate class="form">
+      {% csrf_token %}
+      {% if mode == "installment" %}
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.kind %}
+          {% include "partials/field.html" with field=form.description %}
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.total_amount %}
+          {% include "partials/field.html" with field=form.installments %}
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.first_due_date %}
+          {% include "partials/field.html" with field=form.category %}
+        </div>
+        {% include "partials/field.html" with field=form.account %}
+      {% else %}
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.kind %}
+          {% include "partials/field.html" with field=form.status %}
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.amount %}
+          {% include "partials/field.html" with field=form.transaction_date %}
+        </div>
+        {% include "partials/field.html" with field=form.description %}
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.category %}
+          {% include "partials/field.html" with field=form.account %}
+        </div>
+      {% endif %}
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a class="btn btn-quiet" href="{% url 'finance:transactions' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

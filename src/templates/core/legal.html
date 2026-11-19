@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Documento</p>
+      <h1>{{ title }}</h1>
+      <p class="muted">Versão 1.0 · Última atualização: 19/11/2026</p>
+    </div>
+  </header>
+
+  <article class="card prose">
+    {% if kind == "terms" %}
+      <h2>1. O que é o {{ APP_NAME }}</h2>
+      <p>
+        O {{ APP_NAME }} é uma ferramenta de organização financeira pessoal e
+        simulação educativa. Ele não movimenta dinheiro, não contrata crédito e
+        não substitui consultoria financeira, contábil ou jurídica.
+      </p>
+      <h2>2. Uso responsável</h2>
+      <p>
+        Os resultados dependem dos dados informados por você. Taxas, saldos e
+        prazos devem ser conferidos com os credores. Simulações são estimativas.
+      </p>
+      <h2>3. Conta e segurança</h2>
+      <p>
+        Você é responsável por manter sua senha em sigilo. Em caso de suspeita de
+        acesso indevido, altere a senha e entre em contato pelo canal de suporte.
+      </p>
+      <h2>4. Limitação de responsabilidade</h2>
+      <p>
+        O produto não garante resultado financeiro, aprovação de crédito ou
+        redução de dívidas. Decisões tomadas a partir das simulações são de sua
+        responsabilidade.
+      </p>
+    {% else %}
+      <h2>1. Dados que coletamos</h2>
+      <p>
+        Coletamos e-mail, nome, renda, despesas e dívidas que você informar.
+        Não coletamos CPF, dados bancários completos ou número de cartão.
+      </p>
+      <h2>2. Finalidade</h2>
+      <p>
+        Usamos os dados para autenticar sua conta, calcular seu diagnóstico e
+        gerar seu plano de regularização. Não vendemos nem alugamos seus dados.
+      </p>
+      <h2>3. Seus direitos (LGPD)</h2>
+      <p>
+        Você pode acessar, corrigir, exportar e excluir seus dados. Também pode
+        revogar consentimentos de comunicação e telemetria.
+      </p>
+      <h2>4. Segurança e retenção</h2>
+      <p>
+        Aplicamos controles de acesso, TLS e backups protegidos. Dados de conta
+        são mantidos enquanto a conta existir; backups expiram em até 30 dias.
+      </p>
+      <h2>5. Contato</h2>
+      <p>
+        Para exercer seus direitos, use o canal de privacidade informado pelo
+        operador da sua instância.
+      </p>
+    {% endif %}
+    <p class="muted">
+      Este é um texto inicial de produto e deve ser revisado por profissional
+      jurídico antes do lançamento público.
+    </p>
+  </article>
+{% endblock %}

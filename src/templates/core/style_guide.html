@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Design system — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Referência visual</p>
+      <h1>Material 3 + Glassmorphism</h1>
+      <p class="muted">Tokens, componentes e estados usados no produto.</p>
+    </div>
+  </header>
+
+  <section class="style-section">
+    <h2>Cores</h2>
+    <div class="swatches">
+      <div class="swatch swatch--primary"><span>Primary</span></div>
+      <div class="swatch swatch--secondary"><span>Secondary</span></div>
+      <div class="swatch swatch--tertiary"><span>Tertiary</span></div>
+      <div class="swatch swatch--success"><span>Success</span></div>
+      <div class="swatch swatch--error"><span>Error</span></div>
+      <div class="swatch swatch--surface"><span>Surface</span></div>
+    </div>
+  </section>
+
+  <section class="style-section">
+    <h2>Tipografia</h2>
+    <div class="card">
+      <p class="display">Display 32/40</p>
+      <p class="headline">Headline 24/32</p>
+      <p class="title">Title 20/28</p>
+      <p>Body 16/24 — texto principal do produto.</p>
+      <p class="body-sm">Body small 14/20 — apoio e metadados.</p>
+      <p class="label">Label 14/20 — botões e campos.</p>
+      <p class="caption">Caption 12/16 — legendas.</p>
+    </div>
+  </section>
+
+  <section class="style-section">
+    <h2>Botões</h2>
+    <div class="card button-row">
+      <button class="btn btn-primary" type="button">Primário</button>
+      <button class="btn btn-tonal" type="button">Tonal</button>
+      <button class="btn btn-outline" type="button">Contorno</button>
+      <button class="btn btn-quiet" type="button">Texto</button>
+      <button class="btn btn-primary" type="button" disabled>Desabilitado</button>
+    </div>
+  </section>
+
+  <section class="style-section">
+    <h2>Campos</h2>
+    <div class="card form">
+      <div class="field">
+        <label for="demo-amount">Valor</label>
+        <input class="input" id="demo-amount" type="text" inputmode="decimal" value="1.250,00" />
+        <p class="field__help">Use vírgula para centavos.</p>
+      </div>
+      <div class="field field--error">
+        <label for="demo-error">Parcela mínima</label>
+        <input class="input" id="demo-error" type="text" value="0,00" aria-invalid="true" aria-describedby="demo-error-message" />
+        <p class="field__error" id="demo-error-message" role="alert">Informe um valor maior que zero.</p>
+      </div>
+      <label class="checkbox-row">
+        <input class="checkbox" type="checkbox" checked />
+        <span>Aceito receber lembretes de vencimento.</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="style-section">
+    <h2>Superfícies</h2>
+    <div class="grid grid--2">
+      <article class="glass-card">
+        <p class="eyebrow">Glass card</p>
+        <h3>Destaque</h3>
+        <p class="muted">Use no máximo 1–2 por tela, sempre sobre fundo decorativo.</p>
+        <p class="display">{{ 850|brl }}</p>
+      </article>
+      <article class="card">
+        <p class="eyebrow">Card sólido</p>
+        <h3>Conteúdo</h3>
+        <p class="muted">Padrão para formulários, listas e tabelas densas.</p>
+        <p class="display">{{ 1200|brl }}</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="style-section">
+    <h2>Alertas</h2>
+    <div class="stack">
+      <div class="alert alert--info"><strong>Info</strong><span>Dica contextual e não bloqueante.</span></div>
+      <div class="alert alert--warning"><strong>Atenção</strong><span>Comprometimento acima de 30%.</span></div>
+      <div class="alert alert--critical"><strong>Crítico</strong><span>O orçamento não fecha este mês.</span></div>
+      <div class="alert alert--success"><strong>Sucesso</strong><span>Perfil atualizado.</span></div>
+    </div>
+  </section>
+
+  <section class="style-section">
+    <h2>Tabela</h2>
+    <div class="table-wrap card">
+      <table class="table">
+        <caption class="sr-only">Exemplo de calendário de pagamentos</caption>
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col">Dívida</th>
+            <th scope="col">Pagamento</th>
+            <th scope="col">Juros</th>
+            <th scope="col">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dez/2026</td>
+            <td>Cartão principal</td>
+            <td class="num">{{ 1150|brl }}</td>
+            <td class="num">{{ 119.40|brl }}</td>
+            <td class="num">{{ 4969.40|brl }}</td>
+          </tr>
+          <tr>
+            <td>Jan/2027</td>
+            <td>Cartão principal</td>
+            <td class="num">{{ 1150|brl }}</td>
+            <td class="num">{{ 98.89|brl }}</td>
+            <td class="num">{{ 3918.29|brl }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="style-section">
+    <h2>Estados</h2>
+    <div class="grid grid--3">
+      <article class="card state-card">
+        <span class="state-dot state-dot--success" aria-hidden="true"></span>
+        <h3>Sucesso</h3>
+        <p class="muted">Confirmação discreta + próximo passo.</p>
+      </article>
+      <article class="card state-card">
+        <span class="state-dot state-dot--warning" aria-hidden="true"></span>
+        <h3>Atenção</h3>
+        <p class="muted">Mensagem acionável, sem culpa.</p>
+      </article>
+      <article class="card state-card">
+        <span class="state-dot state-dot--critical" aria-hidden="true"></span>
+        <h3>Crítico</h3>
+        <p class="muted">Explica o risco e oferece caminhos.</p>
+      </article>
+    </div>
+  </section>
+{% endblock %}

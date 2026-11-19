@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Relatório mensal — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header no-print">
+    <div>
+      <p class="eyebrow">Relatórios</p>
+      <h1>Resumo de {{ month|date:"m/Y" }}</h1>
+      <p class="muted">Visão consolidada para acompanhar e imprimir.</p>
+    </div>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{% url 'reports:export_json' %}">Exportar JSON</a>
+      <a class="btn btn-outline" href="{% url 'reports:export_csv' %}">Exportar CSV</a>
+      <button type="button" class="btn btn-primary" onclick="window.print()">Imprimir / PDF</button>
+    </div>
+  </header>
+
+  <section class="card no-print">
+    <form method="get" class="filters filters--compact">
+      <div class="field">
+        <label for="month">Mês</label>
+        <input class="input" id="month" type="month" name="month" value="{{ month|date:'Y-m' }}" />
+      </div>
+      <div class="filters__actions">
+        <button type="submit" class="btn btn-primary">Atualizar</button>
+      </div>
+    </form>
+  </section>
+
+  <header class="print-only">
+    <h1>{{ APP_NAME }} — relatório de {{ month|date:"m/Y" }}</h1>
+    <p>Gerado em {% now "d/m/Y H:i" %}</p>
+  </header>
+
+  <section class="stats-grid">
+    <article class="card stat">
+      <p class="stat__label">Receitas pagas</p>
+      <p class="stat__value money-positive">{{ summary.income|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Despesas pagas</p>
+      <p class="stat__value money-negative">{{ summary.expense|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Saldo do mês</p>
+      <p class="stat__value">{{ summary.balance|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Pendências</p>
+      <p class="stat__value">{{ summary.pending_expense|brl }}</p>
+      <p class="stat__hint">despesas pendentes</p>
+    </article>
+  </section>
+
+  <div class="grid grid--2">
+    <section class="card">
+      <div class="card__header"><h2>Despesas por categoria</h2></div>
+      {% if summary.by_category %}
+        <table class="table">
+          <thead><tr><th scope="col">Categoria</th><th scope="col" class="num">Total</th></tr></thead>
+          <tbody>
+            {% for row in summary.by_category %}
+              <tr>
+                <td>{{ row.category__name|default:"Sem categoria" }}</td>
+                <td class="num">{{ row.total|brl }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="muted">Nenhuma despesa paga no mês.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card__header"><h2>Dívidas ativas</h2></div>
+      {% if debts.count %}
+        <p class="stat__value">{{ debts.total_balance|brl }}</p>
+        <p class="muted">{{ debts.count }} dívida(s) · mínimos de {{ debts.total_minimum|brl }}.</p>
+        <ul class="entity-list">
+          {% for debt in debts.debts %}
+            <li class="entity-row">
+              <span class="entity-row__main">
+                <strong>{{ debt }}</strong>
+                <small>{{ debt.get_type_display }} · vence dia {{ debt.due_day }}</small>
+              </span>
+              <span class="num">{{ debt.current_balance|brl }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nenhuma dívida ativa.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if plan %}
+    <section class="card">
+      <div class="card__header">
+        <h2>Plano de regularização</h2>
+        <span class="badge badge--{% if plan.status == 'active' %}healthy{% elif plan.status == 'infeasible' %}critical{% else %}warning{% endif %}">
+          {{ plan.get_status_display }}
+        </span>
+      </div>
+      <div class="mini-stats">
+        <div><span class="stat__label">Estratégia</span><strong>{{ plan.get_strategy_display }}</strong></div>
+        <div><span class="stat__label">Meses</span><strong>{{ plan.months_to_payoff|default:"—" }}</strong></div>
+        <div><span class="stat__label">Juros projetados</span><strong>{{ plan.total_interest|brl }}</strong></div>
+      </div>
+      {% if adherence and adherence.due %}
+        <div class="progress" aria-hidden="true"><span style="width: {{ adherence.pct }}%"></span></div>
+        <p class="muted">{{ adherence.paid }}/{{ adherence.due }} parcela(s) vencida(s) marcada(s) como paga(s).</p>
+      {% endif %}
+      {% if plan.infeasible_reason %}
+        <p class="muted">{{ plan.infeasible_reason }}</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <section class="card table-wrap">
+    <div class="card__header card__header--inside">
+      <h2>Lançamentos do mês</h2>
+      <span class="muted">{{ summary.transaction_count }} registro(s)</span>
+    </div>
+    {% if transactions %}
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col">Descrição</th>
+            <th scope="col">Categoria</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="num">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for transaction in transactions %}
+            <tr>
+              <td>{{ transaction.transaction_date|date:"d/m/Y" }}</td>
+              <td>{{ transaction.description|default:"Sem descrição" }}</td>
+              <td>{{ transaction.category.name|default:"Sem categoria" }}</td>
+              <td>{{ transaction.get_status_display }}</td>
+              <td class="num {% if transaction.kind == 'income' %}money-positive{% else %}money-negative{% endif %}">
+                {% if transaction.kind == "income" %}+{% else %}−{% endif %}{{ transaction.amount|brl }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">Nenhum lançamento neste mês.</p>
+    {% endif %}
+  </section>
+
+  <p class="caption">
+    Relatório educativo. Confira taxas e saldos com os credores. Este documento não é
+    consultoria financeira, jurídica ou recomendação de crédito.
+  </p>
+{% endblock %}

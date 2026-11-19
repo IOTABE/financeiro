@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Automação</p>
+      <h1>{{ title }}</h1>
+      <p class="muted">Geramos as ocorrências até a data atual e continuamos todo mês.</p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'finance:recurrences' %}">Voltar</a>
+  </header>
+
+  <section class="card form-card">
+    {% if form.non_field_errors %}
+      <div class="alert alert--critical" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <form method="post" novalidate class="form">
+      {% csrf_token %}
+      {% include "partials/field.html" with field=form.description %}
+      <div class="grid grid--2">
+        {% include "partials/field.html" with field=form.kind %}
+        {% include "partials/field.html" with field=form.amount %}
+      </div>
+      <div class="grid grid--2">
+        {% include "partials/field.html" with field=form.due_day %}
+        {% include "partials/field.html" with field=form.start_date %}
+      </div>
+      {% include "partials/field.html" with field=form.end_date %}
+      <div class="grid grid--2">
+        {% include "partials/field.html" with field=form.category %}
+        {% include "partials/field.html" with field=form.account %}
+      </div>
+      {% include "partials/field.html" with field=form.is_active %}
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a class="btn btn-quiet" href="{% url 'finance:recurrences' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

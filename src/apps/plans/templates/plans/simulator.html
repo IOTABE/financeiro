@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Simulador — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">E se…?</p>
+      <h1>Simulador de cenários</h1>
+      <p class="muted">
+        Teste cortes, renda extra, renegociação ou um mês conservador sem alterar seus dados.
+      </p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'plans:current' %}">Voltar ao plano</a>
+  </header>
+
+  {% if not base_plan %}
+    <div class="alert alert--info" role="alert">
+      <strong>Sem plano base</strong>
+      <span>Você pode simular mesmo assim; o cenário será comparado ao orçamento atual.</span>
+    </div>
+  {% endif %}
+
+  <section class="card form-card">
+    {% if form.non_field_errors %}
+      <div class="alert alert--critical" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <form method="post" novalidate class="form" id="simulation-form">
+      {% csrf_token %}
+      <div class="grid grid--2">
+        {% include "partials/field.html" with field=form.kind %}
+        {% include "partials/field.html" with field=form.name %}
+      </div>
+
+      <div data-sim-fields="expense_cut">
+        {% include "partials/field.html" with field=form.expense_cut %}
+      </div>
+
+      <div data-sim-fields="extra_income">
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.extra_income %}
+          {% include "partials/field.html" with field=form.extra_income_months %}
+        </div>
+      </div>
+
+      <div data-sim-fields="renegotiation">
+        {% include "partials/field.html" with field=form.debt_id %}
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.new_rate_percent %}
+          {% include "partials/field.html" with field=form.new_term_months %}
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.discount_percent %}
+          {% include "partials/field.html" with field=form.entry_payment %}
+        </div>
+      </div>
+
+      <div data-sim-fields="conservative">
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.income_factor %}
+          {% include "partials/field.html" with field=form.expense_factor %}
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Simular cenário</button>
+        <a class="btn btn-quiet" href="{% url 'plans:current' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    (function () {
+      var kind = document.getElementById("id_kind");
+      if (!kind) return;
+      function update() {
+        document.querySelectorAll("[data-sim-fields]").forEach(function (section) {
+          section.hidden = section.dataset.simFields !== kind.value;
+        });
+      }
+      kind.addEventListener("change", update);
+      update();
+    })();
+  </script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Notificações — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Avisos</p>
+      <h1>Notificações</h1>
+      <p class="muted">Lembretes de vencimento e alertas do seu plano.</p>
+    </div>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{% url 'notifications:preferences' %}">Preferências</a>
+      <form method="post" action="{% url 'notifications:mark_all_read' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-quiet">Marcar todas como lidas</button>
+      </form>
+    </div>
+  </header>
+
+  {% if notifications %}
+    <section class="stack">
+      {% for notification in notifications %}
+        <article class="card notification-card {% if notification.is_unread %}notification-card--unread{% endif %}">
+          <div class="notification-card__body">
+            <div class="card__header">
+              <h2>{{ notification.title }}</h2>
+              <span class="badge badge--neutral">{{ notification.get_kind_display }}</span>
+            </div>
+            <p>{{ notification.body }}</p>
+            <p class="caption">{{ notification.created_at|date:"d/m/Y H:i" }}</p>
+            {% if notification.payload.url %}
+              <a class="link-button" href="{{ notification.payload.url }}">Abrir</a>
+            {% endif %}
+          </div>
+          {% if notification.is_unread %}
+            <form method="post" action="{% url 'notifications:mark_read' notification.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline">Marcar como lida</button>
+            </form>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </section>
+  {% else %}
+    <section class="glass-card empty-state">
+      <p class="eyebrow">Tudo em dia</p>
+      <h2>Nenhuma notificação</h2>
+      <p class="muted">Quando houver um vencimento próximo, avisamos aqui.</p>
+      <a class="btn btn-primary" href="{% url 'core:dashboard' %}">Voltar ao início</a>
+    </section>
+  {% endif %}
+{% endblock %}

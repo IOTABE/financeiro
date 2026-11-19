@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Recorrências — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Todo mês</p>
+      <h1>Recorrências</h1>
+      <p class="muted">Salário, aluguel e assinaturas gerados automaticamente.</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'finance:recurrence_create' %}">Nova recorrência</a>
+  </header>
+
+  {% if recurrences %}
+    <section class="card table-wrap">
+      <table class="table">
+        <caption class="sr-only">Recorrências cadastradas</caption>
+        <thead>
+          <tr>
+            <th scope="col">Descrição</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Dia</th>
+            <th scope="col">Próxima</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="num">Valor</th>
+            <th scope="col"><span class="sr-only">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for recurrence in recurrences %}
+            <tr>
+              <td>
+                <strong>{{ recurrence.description }}</strong>
+                <small class="table-note">{{ recurrence.category.name|default:"Sem categoria" }}</small>
+              </td>
+              <td>{{ recurrence.get_kind_display }}</td>
+              <td>dia {{ recurrence.due_day }}</td>
+              <td>{{ recurrence.next_run|date:"d/m/Y" }}</td>
+              <td>
+                <span class="status {% if recurrence.is_active %}status--paid{% else %}status--canceled{% endif %}">
+                  {% if recurrence.is_active %}Ativa{% else %}Inativa{% endif %}
+                </span>
+              </td>
+              <td class="num {% if recurrence.kind == 'income' %}money-positive{% else %}money-negative{% endif %}">
+                {% if recurrence.kind == "income" %}+{% else %}−{% endif %}{{ recurrence.amount|brl }}
+              </td>
+              <td>
+                <div class="row-actions">
+                  <a href="{% url 'finance:recurrence_update' recurrence.pk %}">Editar</a>
+                  <form method="post" action="{% url 'finance:recurrence_toggle' recurrence.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="link-button">
+                      {% if recurrence.is_active %}Desativar{% else %}Ativar{% endif %}
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% else %}
+    <section class="glass-card empty-state">
+      <p class="eyebrow">Automatize</p>
+      <h2>Nenhuma recorrência cadastrada</h2>
+      <p class="muted">Cadastre o salário e as contas fixas para não lançar todo mês.</p>
+      <a class="btn btn-primary" href="{% url 'finance:recurrence_create' %}">Criar recorrência</a>
+    </section>
+  {% endif %}
+{% endblock %}

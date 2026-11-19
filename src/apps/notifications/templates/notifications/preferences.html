@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Preferências de notificação — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Comunicação</p>
+      <h1>Preferências de notificação</h1>
+      <p class="muted">Escolha o que deseja receber. Você pode mudar quando quiser.</p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'notifications:list' %}">Voltar</a>
+  </header>
+
+  <section class="card form-card form-card--narrow">
+    {% if form.non_field_errors %}
+      <div class="alert alert--critical" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <form method="post" novalidate class="form">
+      {% csrf_token %}
+      {% include "partials/field.html" with field=form.email_enabled %}
+      {% include "partials/field.html" with field=form.due_reminders %}
+      {% include "partials/field.html" with field=form.risk_alerts %}
+      {% include "partials/field.html" with field=form.weekly_summary %}
+      <div class="grid grid--2">
+        {% include "partials/field.html" with field=form.quiet_hours_start %}
+        {% include "partials/field.html" with field=form.quiet_hours_end %}
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar preferências</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

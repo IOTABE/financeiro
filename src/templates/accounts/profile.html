@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Perfil financeiro — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Seus números</p>
+      <h1>Perfil financeiro</h1>
+      <p class="muted">Quanto mais realista, melhor o plano. Você pode ajustar depois.</p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'core:dashboard' %}">Voltar ao início</a>
+  </header>
+
+  <div class="profile-layout">
+    <section class="card">
+      {% if form.non_field_errors %}
+        <div class="alert alert--critical" role="alert">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate class="form">
+        {% csrf_token %}
+
+        <div class="form-section">
+          <div class="form-section__header">
+            <h2>Renda</h2>
+            <p class="muted">Valores mensais, em reais.</p>
+          </div>
+          <div class="grid grid--2">
+            {% include "partials/field.html" with field=form.gross_income %}
+            {% include "partials/field.html" with field=form.net_income %}
+          </div>
+          <div class="grid grid--2">
+            {% include "partials/field.html" with field=form.income_type %}
+            {% include "partials/field.html" with field=form.conservative_factor %}
+          </div>
+          {% include "partials/field.html" with field=form.dependents %}
+        </div>
+
+        <div class="form-section">
+          <div class="form-section__header">
+            <h2>Essencial</h2>
+            <p class="muted">O que você precisa para viver, não o que você gostaria de gastar.</p>
+          </div>
+          <div class="grid grid--2">
+            {% include "partials/field.html" with field=form.essential_expenses %}
+            {% include "partials/field.html" with field=form.min_existential %}
+          </div>
+          {% include "partials/field.html" with field=form.other_planned_expenses %}
+        </div>
+
+        <div class="form-section">
+          <div class="form-section__header">
+            <h2>Preferências</h2>
+          </div>
+          {% include "partials/field.html" with field=form.theme %}
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Salvar perfil</button>
+          <button type="submit" name="complete_onboarding" value="1" class="btn btn-outline">
+            Salvar e ver diagnóstico
+          </button>
+          <a class="btn btn-quiet" href="{% url 'core:dashboard' %}">Cancelar</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="profile-aside">
+      <article class="glass-card">
+        <p class="eyebrow">Resumo agora</p>
+        {% if health.has_income %}
+          <p class="profile-aside__label">Disponível para dívidas</p>
+          <p class="profile-aside__value">{{ health.free_cash|brl }}</p>
+          <p class="muted">
+            Piso essencial de {{ health.essential_floor|brl }}.
+          </p>
+          <span class="badge badge--{{ health.risk_level }}">{{ health.risk_label }}</span>
+        {% else %}
+          <p class="muted">Preencha a renda para ver o resumo.</p>
+        {% endif %}
+      </article>
+
+      <article class="card card--soft">
+        <h3>Privacidade</h3>
+        <p class="muted">
+          Seus dados financeiros são usados apenas para calcular seu diagnóstico
+          e plano. Você pode exportar ou excluir tudo quando quiser.
+        </p>
+        <div class="inline-actions">
+          <a class="btn btn-outline" href="{% url 'accounts:my_data' %}">Meus dados</a>
+          <a class="btn btn-quiet" href="{% url 'notifications:preferences' %}">Notificações</a>
+        </div>
+      </article>
+    </aside>
+  </div>
+{% endblock %}

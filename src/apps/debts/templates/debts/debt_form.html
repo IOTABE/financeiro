@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Compromisso</p>
+      <h1>{{ title }}</h1>
+      <p class="muted">Informe a taxa mensal ou a anual efetiva. Usamos juros compostos.</p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'debts:list' %}">Voltar</a>
+  </header>
+
+  <section class="card form-card">
+    {% if form.non_field_errors %}
+      <div class="alert alert--critical" role="alert">
+        {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <form method="post" novalidate class="form">
+      {% csrf_token %}
+      <div class="form-section">
+        <div class="form-section__header">
+          <h2>Credor</h2>
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.creditor %}
+          {% include "partials/field.html" with field=form.nickname %}
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.type %}
+          {% include "partials/field.html" with field=form.status %}
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section__header">
+          <h2>Valores</h2>
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.original_amount %}
+          {% include "partials/field.html" with field=form.current_balance %}
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.minimum_payment %}
+          {% include "partials/field.html" with field=form.installment_amount %}
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section__header">
+          <h2>Juros</h2>
+          <p class="muted">Preencha pelo menos uma das taxas.</p>
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.monthly_rate_percent %}
+          {% include "partials/field.html" with field=form.annual_rate_percent %}
+        </div>
+        {% include "partials/field.html" with field=form.cet_percent %}
+      </div>
+
+      <div class="form-section">
+        <div class="form-section__header">
+          <h2>Vencimento</h2>
+        </div>
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.due_day %}
+          {% include "partials/field.html" with field=form.start_date %}
+        </div>
+        {% include "partials/field.html" with field=form.notes %}
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar dívida</button>
+        <a class="btn btn-quiet" href="{% url 'debts:list' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

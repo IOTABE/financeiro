@@ -1,0 +1,120 @@
+:root {
+  color-scheme: light;
+
+  --md-sys-color-primary: #0f766e;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ccfbf1;
+  --md-sys-color-on-primary-container: #134e4a;
+  --md-sys-color-secondary: #2563eb;
+  --md-sys-color-secondary-container: #dbeafe;
+  --md-sys-color-on-secondary-container: #1e3a8a;
+  --md-sys-color-tertiary: #b45309;
+  --md-sys-color-tertiary-container: #fef3c7;
+  --md-sys-color-error: #dc2626;
+  --md-sys-color-error-container: #fee2e2;
+  --md-sys-color-success: #16a34a;
+  --md-sys-color-success-container: #dcfce7;
+  --md-sys-color-surface: #f8fafc;
+  --md-sys-color-surface-container: #ffffff;
+  --md-sys-color-surface-container-high: #f1f5f9;
+  --md-sys-color-on-surface: #0f172a;
+  --md-sys-color-on-surface-variant: #475569;
+  --md-sys-color-outline: #cbd5e1;
+  --md-sys-color-outline-variant: #e2e8f0;
+  --md-sys-color-scrim: rgba(15, 23, 42, 0.42);
+
+  --glass-blur: 16px;
+  --glass-saturate: 140%;
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.45);
+  --glass-shadow: 0 8px 32px rgba(15, 23, 42, 0.12);
+  --glass-scrim: rgba(248, 250, 252, 0.72);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --font-sans: "Roboto Flex", "Roboto", "Inter", system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.08);
+
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --motion-emphasized: 300ms;
+  --easing: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --md-sys-color-primary: #5eead4;
+  --md-sys-color-on-primary: #003731;
+  --md-sys-color-primary-container: #115e59;
+  --md-sys-color-on-primary-container: #ccfbf1;
+  --md-sys-color-secondary: #93c5fd;
+  --md-sys-color-secondary-container: #1e3a8a;
+  --md-sys-color-on-secondary-container: #dbeafe;
+  --md-sys-color-tertiary: #fcd34d;
+  --md-sys-color-tertiary-container: #78350f;
+  --md-sys-color-error: #fca5a5;
+  --md-sys-color-error-container: #7f1d1d;
+  --md-sys-color-success: #86efac;
+  --md-sys-color-success-container: #14532d;
+  --md-sys-color-surface: #0b1220;
+  --md-sys-color-surface-container: #111827;
+  --md-sys-color-surface-container-high: #1e293b;
+  --md-sys-color-on-surface: #e2e8f0;
+  --md-sys-color-on-surface-variant: #94a3b8;
+  --md-sys-color-outline: #334155;
+  --md-sys-color-outline-variant: #1f2937;
+  --md-sys-color-scrim: rgba(0, 0, 0, 0.6);
+
+  --glass-bg: rgba(15, 23, 42, 0.55);
+  --glass-border: rgba(148, 163, 184, 0.25);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+  --glass-scrim: rgba(11, 18, 32, 0.72);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+
+    --md-sys-color-primary: #5eead4;
+    --md-sys-color-on-primary: #003731;
+    --md-sys-color-primary-container: #115e59;
+    --md-sys-color-on-primary-container: #ccfbf1;
+    --md-sys-color-secondary: #93c5fd;
+    --md-sys-color-secondary-container: #1e3a8a;
+    --md-sys-color-on-secondary-container: #dbeafe;
+    --md-sys-color-tertiary: #fcd34d;
+    --md-sys-color-tertiary-container: #78350f;
+    --md-sys-color-error: #fca5a5;
+    --md-sys-color-error-container: #7f1d1d;
+    --md-sys-color-success: #86efac;
+    --md-sys-color-success-container: #14532d;
+    --md-sys-color-surface: #0b1220;
+    --md-sys-color-surface-container: #111827;
+    --md-sys-color-surface-container-high: #1e293b;
+    --md-sys-color-on-surface: #e2e8f0;
+    --md-sys-color-on-surface-variant: #94a3b8;
+    --md-sys-color-outline: #334155;
+    --md-sys-color-outline-variant: #1f2937;
+    --md-sys-color-scrim: rgba(0, 0, 0, 0.6);
+
+    --glass-bg: rgba(15, 23, 42, 0.55);
+    --glass-border: rgba(148, 163, 184, 0.25);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+    --glass-scrim: rgba(11, 18, 32, 0.72);
+  }
+}

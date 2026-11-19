@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Criar conta — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <section class="auth">
+    <div class="auth__aside">
+      <p class="eyebrow">Comece agora</p>
+      <h1>Um plano possível começa com clareza.</h1>
+      <p class="muted">
+        Crie sua conta para registrar sua situação e receber um diagnóstico
+        honesto do seu orçamento.
+      </p>
+      <ul class="auth__list">
+        <li>Sem venda de dados</li>
+        <li>Você controla seus dados</li>
+        <li>Feito para o seu bolso</li>
+      </ul>
+    </div>
+
+    <div class="auth__card glass-card">
+      <h2>Criar conta</h2>
+      <p class="muted">Leva menos de 1 minuto.</p>
+
+      {% if form.non_field_errors %}
+        <div class="alert alert--critical" role="alert">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate class="form">
+        {% csrf_token %}
+        {% include "partials/field.html" with field=form.full_name %}
+        {% include "partials/field.html" with field=form.email %}
+        {% include "partials/field.html" with field=form.password1 %}
+        {% include "partials/field.html" with field=form.password2 %}
+
+        <div class="consent">
+          <label class="checkbox-row">
+            {{ form.accept_terms }}
+            <span>Li e aceito os <a href="{% url 'core:terms' %}" target="_blank" rel="noopener">termos de uso</a>.</span>
+          </label>
+          {% for error in form.accept_terms.errors %}<p class="field__error" role="alert">{{ error }}</p>{% endfor %}
+
+          <label class="checkbox-row">
+            {{ form.accept_privacy }}
+            <span>Li e aceito a <a href="{% url 'core:privacy' %}" target="_blank" rel="noopener">política de privacidade</a>.</span>
+          </label>
+          {% for error in form.accept_privacy.errors %}<p class="field__error" role="alert">{{ error }}</p>{% endfor %}
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Criar minha conta</button>
+      </form>
+
+      <p class="auth__switch">
+        Já tem conta? <a href="{% url 'accounts:login' %}">Entrar</a>
+      </p>
+    </div>
+  </section>
+{% endblock %}

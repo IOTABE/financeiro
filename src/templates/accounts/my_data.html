@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Meus dados — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Privacidade</p>
+      <h1>Meus dados</h1>
+      <p class="muted">Acesse, exporte ou exclua sua conta conforme a LGPD.</p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'core:dashboard' %}">Voltar ao início</a>
+  </header>
+
+  <div class="grid grid--2">
+    <section class="card">
+      <h2>Exportar</h2>
+      <p class="muted">Baixe uma cópia dos seus dados financeiros.</p>
+      <div class="inline-actions">
+        <a class="btn btn-outline" href="{% url 'reports:export_json' %}">Dados completos (JSON)</a>
+        <a class="btn btn-outline" href="{% url 'reports:export_csv' %}">Transações (CSV)</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Comunicações</h2>
+      <p class="muted">Controle lembretes e alertas.</p>
+      <a class="btn btn-outline" href="{% url 'notifications:preferences' %}">Preferências de notificação</a>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="card__header"><h2>Consentimentos</h2></div>
+    {% if consents %}
+      <ul class="entity-list">
+        {% for consent in consents %}
+          <li class="entity-row">
+            <span class="entity-row__main">
+              <strong>{{ consent.get_kind_display }}</strong>
+              <small>versão {{ consent.version }} · {{ consent.accepted_at|date:"d/m/Y H:i" }}</small>
+            </span>
+            <span class="status {% if consent.accepted %}status--paid{% else %}status--canceled{% endif %}">
+              {% if consent.accepted %}Aceito{% else %}Revogado{% endif %}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Nenhum consentimento registrado.</p>
+    {% endif %}
+  </section>
+
+  <section class="card danger-zone">
+    <div class="card__header">
+      <h2>Excluir conta</h2>
+      <span class="badge badge--critical">irreversível</span>
+    </div>
+    <p class="muted">
+      A exclusão remove perfil, transações, dívidas, planos e notificações.
+      Registros de auditoria são mantidos sem vínculo com a sua identidade.
+      Cópias de backup podem persistir por até 30 dias.
+    </p>
+    {% if delete_form.non_field_errors %}
+      <div class="alert alert--critical" role="alert">
+        {% for error in delete_form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+      </div>
+    {% endif %}
+    <form method="post" action="{% url 'accounts:delete_account' %}" novalidate class="form">
+      {% csrf_token %}
+      <div class="grid grid--2">
+        {% include "partials/field.html" with field=delete_form.password %}
+        {% include "partials/field.html" with field=delete_form.confirmation %}
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-danger">Excluir minha conta</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

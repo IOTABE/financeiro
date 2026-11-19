@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Transações — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Movimentações</p>
+      <h1>Transações</h1>
+      <p class="muted">Receitas e despesas do período. {{ page.paginator.count }} lançamento(s).</p>
+    </div>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{% url 'finance:installment_create' %}">Compra parcelada</a>
+      <a class="btn btn-primary" href="{% url 'finance:transaction_create' %}">Novo lançamento</a>
+    </div>
+  </header>
+
+  <section class="stats-grid">
+    <article class="card stat">
+      <p class="stat__label">Receitas pagas</p>
+      <p class="stat__value money-positive">{{ income|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Despesas pagas</p>
+      <p class="stat__value money-negative">{{ expense|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Saldo do período</p>
+      <p class="stat__value">{{ balance|brl }}</p>
+    </article>
+  </section>
+
+  <section class="card filter-card">
+    <form method="get" class="filters">
+      <div class="field">
+        <label for="from">De</label>
+        <input class="input" id="from" type="date" name="from" value="{{ filters.from }}" />
+      </div>
+      <div class="field">
+        <label for="to">Até</label>
+        <input class="input" id="to" type="date" name="to" value="{{ filters.to }}" />
+      </div>
+      <div class="field">
+        <label for="kind">Tipo</label>
+        <select class="input select" id="kind" name="kind">
+          <option value="">Todos</option>
+          <option value="income" {% if filters.kind == "income" %}selected{% endif %}>Receita</option>
+          <option value="expense" {% if filters.kind == "expense" %}selected{% endif %}>Despesa</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select class="input select" id="status" name="status">
+          <option value="">Todos</option>
+          <option value="paid" {% if filters.status == "paid" %}selected{% endif %}>Pago</option>
+          <option value="pending" {% if filters.status == "pending" %}selected{% endif %}>Pendente</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="category">Categoria</label>
+        <select class="input select" id="category" name="category">
+          <option value="">Todas</option>
+          {% for category in categories %}
+            <option value="{{ category.pk }}" {% if filters.category == category.pk|stringformat:"s" %}selected{% endif %}>
+              {{ category.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="q">Buscar</label>
+        <input class="input" id="q" type="search" name="q" value="{{ filters.q }}" placeholder="Descrição" />
+      </div>
+      <div class="filters__actions">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a class="btn btn-quiet" href="{% url 'finance:transactions' %}">Limpar</a>
+      </div>
+    </form>
+  </section>
+
+  {% if page.object_list %}
+    <section class="card table-wrap">
+      <table class="table">
+        <caption class="sr-only">Lista de transações do período selecionado</caption>
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col">Descrição</th>
+            <th scope="col">Categoria</th>
+            <th scope="col">Conta</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="num">Valor</th>
+            <th scope="col"><span class="sr-only">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for transaction in page.object_list %}
+            <tr>
+              <td>{{ transaction.transaction_date|date:"d/m/Y" }}</td>
+              <td>
+                <strong>{{ transaction.description|default:"Sem descrição" }}</strong>
+                {% if transaction.installment_group %}
+                  <small class="table-note">{{ transaction.installment_number }}/{{ transaction.installment_group.installments }}</small>
+                {% endif %}
+                {% if transaction.recurrence %}
+                  <small class="table-note">recorrente</small>
+                {% endif %}
+              </td>
+              <td>{{ transaction.category.name|default:"Sem categoria" }}</td>
+              <td>{{ transaction.account.name|default:"—" }}</td>
+              <td><span class="status status--{{ transaction.status }}">{{ transaction.get_status_display }}</span></td>
+              <td class="num {% if transaction.kind == 'income' %}money-positive{% else %}money-negative{% endif %}">
+                {% if transaction.kind == "income" %}+{% else %}−{% endif %}{{ transaction.amount|brl }}
+              </td>
+              <td>
+                <div class="row-actions">
+                  <a href="{% url 'finance:transaction_update' transaction.pk %}">Editar</a>
+                  <form method="post" action="{% url 'finance:transaction_toggle' transaction.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="link-button">
+                      {% if transaction.status == "paid" %}Reabrir{% else %}Pagar{% endif %}
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'finance:transaction_delete' transaction.pk %}" onsubmit="return confirm('Remover este lançamento?');">
+                    {% csrf_token %}
+                    <button type="submit" class="link-button link-button--danger">Remover</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    {% if page.paginator.num_pages > 1 %}
+      <nav class="pagination" aria-label="Paginação">
+        {% if page.has_previous %}
+          <a class="btn btn-outline" href="?page={{ page.previous_page_number }}&from={{ filters.from }}&to={{ filters.to }}&kind={{ filters.kind }}&status={{ filters.status }}&category={{ filters.category }}&q={{ filters.q }}">Anterior</a>
+        {% endif %}
+        <span class="muted">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}
+          <a class="btn btn-outline" href="?page={{ page.next_page_number }}&from={{ filters.from }}&to={{ filters.to }}&kind={{ filters.kind }}&status={{ filters.status }}&category={{ filters.category }}&q={{ filters.q }}">Próxima</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <section class="glass-card empty-state">
+      <p class="eyebrow">Nada por aqui</p>
+      <h2>Nenhum lançamento no período</h2>
+      <p class="muted">Registre uma receita ou despesa para começar a acompanhar seu mês.</p>
+      <a class="btn btn-primary" href="{% url 'finance:transaction_create' %}">Registrar primeiro lançamento</a>
+    </section>
+  {% endif %}
+{% endblock %}

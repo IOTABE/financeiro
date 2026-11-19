@@ -1,0 +1,57 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+    volumes:
+      - .:/app
+      - static:/app/staticfiles
+      - media:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_DEBUG: "1"
+      DJANGO_ALLOWED_HOSTS: "*"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-clareza}:${POSTGRES_PASSWORD:-clareza}@db:5432/${POSTGRES_DB:-clareza}
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: "1025"
+      DEFAULT_FROM_EMAIL: nao-responda@clareza.local
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    volumes:
+      - .:/app
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_DEBUG: "1"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-clareza}:${POSTGRES_PASSWORD:-clareza}@db:5432/${POSTGRES_DB:-clareza}
+      EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: "1025"
+
+  beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    volumes:
+      - .:/app
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DJANGO_DEBUG: "1"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-clareza}:${POSTGRES_PASSWORD:-clareza}@db:5432/${POSTGRES_DB:-clareza}
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    restart: unless-stopped
+
+volumes:
+  static:
+  media:

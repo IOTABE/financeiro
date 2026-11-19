@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Seu plano — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Plano de regularização</p>
+      <h1>Plano {{ plan.get_strategy_display }}</h1>
+      <p class="muted">
+        Gerado em {{ plan.generated_at|date:"d/m/Y H:i" }}
+        {% if plan.label %} · {{ plan.label }}{% endif %}
+        <span class="badge badge--{% if plan.status == 'active' %}healthy{% elif plan.status == 'infeasible' %}critical{% elif plan.status == 'stale' %}warning{% else %}neutral{% endif %}">
+          {{ plan.get_status_display }}
+        </span>
+      </p>
+    </div>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{% url 'plans:compare' %}">Comparar</a>
+      <a class="btn btn-outline" href="{% url 'plans:simulator' %}">Simular cenário</a>
+      <form method="post" action="{% url 'plans:recalculate' plan.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">Recalcular</button>
+      </form>
+    </div>
+  </header>
+
+  {% if plan.status == "stale" %}
+    <div class="alert alert--warning" role="alert">
+      <strong>Plano desatualizado</strong>
+      <span>Seus dados mudaram. Recalcule para refletir a situação atual.</span>
+    </div>
+  {% endif %}
+
+  {% if plan.status == "infeasible" %}
+    <div class="alert alert--critical" role="alert">
+      <strong>Plano inviável</strong>
+      <span>{{ plan.infeasible_reason }}</span>
+    </div>
+  {% elif plan.status == "term_exceeded" %}
+    <div class="alert alert--critical" role="alert">
+      <strong>Prazo excedido</strong>
+      <span>O plano não terminou em 600 meses. Considere renegociar ou aumentar o valor mensal.</span>
+    </div>
+  {% endif %}
+
+  <section class="stats-grid">
+    <article class="card stat">
+      <p class="stat__label">Disponível por mês</p>
+      <p class="stat__value">{{ plan.monthly_available|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Meses até quitar</p>
+      <p class="stat__value">{{ plan.months_to_payoff|default:"—" }}</p>
+      <p class="stat__hint">{% if plan.debt_free_date %}livre em {{ plan.debt_free_date|date:"m/Y" }}{% endif %}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Juros projetados</p>
+      <p class="stat__value">{{ plan.total_interest|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Total pago</p>
+      <p class="stat__value">{{ plan.total_paid|brl }}</p>
+    </article>
+  </section>
+
+  {% if plan.status == "active" or plan.status == "stale" %}
+    <section class="card">
+      <div class="card__header">
+        <h2>Aderência ao plano</h2>
+        <span class="badge {% if adherence.pct >= 80 %}badge--healthy{% elif adherence.pct >= 40 %}badge--warning{% else %}badge--neutral{% endif %}">
+          {{ adherence.pct }}%
+        </span>
+      </div>
+      <div class="progress" aria-hidden="true"><span style="width: {{ adherence.pct }}%"></span></div>
+      <p class="muted">
+        {{ adherence.paid }} de {{ adherence.due }} parcela(s) vencida(s) marcada(s) como paga(s)
+        · {{ adherence.pending }} pendente(s).
+      </p>
+    </section>
+  {% endif %}
+
+  {% if warnings %}
+    <section class="alerts" aria-label="Avisos do plano">
+      {% for warning in warnings %}
+        <div class="alert alert--{% if warning.severity == 'critical' %}critical{% elif warning.severity == 'warning' %}warning{% else %}info{% endif %}">
+          <strong>{{ warning.code }}</strong>
+          <span>{{ warning.message }}</span>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if items %}
+    <section class="card table-wrap">
+      <div class="card__header card__header--inside">
+        <h2>Ordem de pagamento</h2>
+        {% if plan.summary.has_quick_wins %}<span class="badge badge--healthy">com quick wins</span>{% endif %}
+      </div>
+      <table class="table">
+        <caption class="sr-only">Ordem recomendada de pagamento das dívidas</caption>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Dívida</th>
+            <th scope="col">Por quê</th>
+            <th scope="col">Quitação</th>
+            <th scope="col" class="num">Juros</th>
+            <th scope="col" class="num">Total pago</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td>{{ item.priority_order }}</td>
+              <td><strong>{{ item.debt_name|default:item.debt }}</strong></td>
+              <td class="muted">{{ item.reason }}</td>
+              <td>{% if item.projected_payoff_month %}{{ item.projected_payoff_month|date:"m/Y" }}{% else %}—{% endif %}</td>
+              <td class="num">{{ item.projected_interest|brl }}</td>
+              <td class="num">{{ item.projected_total_paid|brl }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card table-wrap">
+      <div class="card__header card__header--inside">
+        <h2>Calendário</h2>
+        <span class="muted">{{ page.paginator.count }} linha(s)</span>
+      </div>
+      <table class="table">
+        <caption class="sr-only">Calendário de pagamentos do plano</caption>
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col">Dívida</th>
+            <th scope="col" class="num">Pagamento</th>
+            <th scope="col" class="num">Juros</th>
+            <th scope="col" class="num">Principal</th>
+            <th scope="col" class="num">Saldo final</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in page.object_list %}
+            <tr>
+              <td>{{ entry.competence_month|date:"m/Y" }}</td>
+              <td>{{ entry.debt_name|default:entry.debt }}</td>
+              <td class="num">{{ entry.payment|brl }}</td>
+              <td class="num">{{ entry.interest|brl }}</td>
+              <td class="num">{{ entry.principal|brl }}</td>
+              <td class="num">{{ entry.closing_balance|brl }}</td>
+              <td>
+                {% if entry.is_paid %}
+                  <span class="status status--paid">Pago {{ entry.adherence.paid_at|date:"d/m" }}</span>
+                {% elif entry.payment > 0 and entry.competence_month <= today %}
+                  <form method="post" action="{% url 'plans:schedule_pay' entry.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="link-button">Marcar pago</button>
+                  </form>
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colspan="2">Totais do plano</th>
+            <td class="num">{{ totals.payments|default:0|brl }}</td>
+            <td class="num">{{ totals.interest|default:0|brl }}</td>
+            <td class="num">{{ totals.principal|default:0|brl }}</td>
+            <td class="num">—</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      {% if page.paginator.num_pages > 1 %}
+        <nav class="pagination" aria-label="Paginação do calendário">
+          {% if page.has_previous %}
+            <a class="btn btn-outline" href="?page={{ page.previous_page_number }}">Anterior</a>
+          {% endif %}
+          <span class="muted">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>
+          {% if page.has_next %}
+            <a class="btn btn-outline" href="?page={{ page.next_page_number }}">Próxima</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <section class="card">
+    <details class="calc">
+      <summary>Gerar outro plano</summary>
+      <div class="calc__body">
+        <form method="post" action="{% url 'plans:generate' %}" novalidate class="form">
+          {% csrf_token %}
+          <div class="grid grid--2">
+            {% include "partials/field.html" with field=generate_form.strategy %}
+            {% include "partials/field.html" with field=generate_form.start_month %}
+          </div>
+          <div class="grid grid--2">
+            {% include "partials/field.html" with field=generate_form.extra_payment %}
+            {% include "partials/field.html" with field=generate_form.extra_payment_months %}
+          </div>
+          <button type="submit" class="btn btn-primary">Gerar novo plano</button>
+        </form>
+      </div>
+    </details>
+  </section>
+{% endblock %}

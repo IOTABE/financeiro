@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Dívidas — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Seus compromissos</p>
+      <h1>Dívidas</h1>
+      <p class="muted">{{ summary.count }} dívida(s) ativa(s). O plano de quitação chega na próxima fase.</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'debts:create' %}">Nova dívida</a>
+  </header>
+
+  <section class="stats-grid">
+    <article class="card stat">
+      <p class="stat__label">Dívida total</p>
+      <p class="stat__value">{{ summary.total_balance|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Mínimos mensais</p>
+      <p class="stat__value">{{ summary.total_minimum|brl }}</p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Comprometimento</p>
+      <p class="stat__value">
+        {% if commitment_pct is not None %}{{ commitment_pct|percent:1 }}{% else %}—{% endif %}
+      </p>
+    </article>
+    <article class="card stat">
+      <p class="stat__label">Próximo vencimento</p>
+      <p class="stat__value">
+        {% if summary.next_due %}
+          dia {{ summary.next_due.due_day }}
+        {% else %}—{% endif %}
+      </p>
+      <p class="stat__hint">
+        {% if summary.next_due %}{{ summary.next_due|truncatechars:24 }}{% else %}Sem dívidas ativas{% endif %}
+      </p>
+    </article>
+  </section>
+
+  {% if summary.negative_amortization %}
+    <div class="alert alert--critical" role="alert">
+      <strong>Atenção</strong>
+      <span>
+        {{ summary.negative_amortization|length }} dívida(s) crescem mesmo pagando o mínimo.
+        Revise a parcela ou priorize a quitação.
+      </span>
+    </div>
+  {% endif %}
+
+  {% if debts %}
+    <section class="card table-wrap">
+      <table class="table">
+        <caption class="sr-only">Dívidas cadastradas</caption>
+        <thead>
+          <tr>
+            <th scope="col">Credor</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Taxa</th>
+            <th scope="col">Vencimento</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="num">Saldo</th>
+            <th scope="col" class="num">Mínimo</th>
+            <th scope="col"><span class="sr-only">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for debt in debts %}
+            <tr>
+              <td>
+                <a href="{% url 'debts:detail' debt.pk %}"><strong>{{ debt.nickname|default:debt.creditor }}</strong></a>
+                {% if debt.nickname %}<small class="table-note">{{ debt.creditor }}</small>{% endif %}
+                {% if debt.has_negative_amortization %}
+                  <small class="table-note text-danger">amortização negativa</small>
+                {% endif %}
+              </td>
+              <td>{{ debt.get_type_display }}</td>
+              <td>{{ debt.monthly_rate|percent }} a.m.</td>
+              <td>dia {{ debt.due_day }}</td>
+              <td><span class="status status--{{ debt.status }}">{{ debt.get_status_display }}</span></td>
+              <td class="num">{{ debt.current_balance|brl }}</td>
+              <td class="num">{{ debt.minimum_payment|brl }}</td>
+              <td>
+                <div class="row-actions">
+                  <a href="{% url 'debts:detail' debt.pk %}">Detalhes</a>
+                  <a href="{% url 'debts:update' debt.pk %}">Editar</a>
+                  <form method="post" action="{% url 'debts:delete' debt.pk %}" onsubmit="return confirm('Remover esta dívida?');">
+                    {% csrf_token %}
+                    <button type="submit" class="link-button link-button--danger">Remover</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% else %}
+    <section class="glass-card empty-state">
+      <p class="eyebrow">Próximo passo</p>
+      <h2>Nenhuma dívida cadastrada</h2>
+      <p class="muted">Cadastre cartão, empréstimo ou parcelado para ver o impacto real no orçamento.</p>
+      <a class="btn btn-primary" href="{% url 'debts:create' %}">Cadastrar primeira dívida</a>
+    </section>
+  {% endif %}
+{% endblock %}

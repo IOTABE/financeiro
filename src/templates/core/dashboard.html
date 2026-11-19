@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Início — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Seu diagnóstico</p>
+      <h1>Olá, {{ user.get_short_name }}.</h1>
+      <p class="muted">Veja onde você está e qual é o próximo passo.</p>
+    </div>
+    <div class="inline-actions">
+      <a class="btn btn-outline" href="{% url 'core:onboarding' %}">Checklist</a>
+      <a class="btn btn-outline" href="{% url 'accounts:profile' %}">Editar perfil</a>
+    </div>
+  </header>
+
+  {% if not health.has_income %}
+    <section class="glass-card empty-state">
+      <p class="eyebrow">Primeiro passo</p>
+      <h2>Informe sua renda para começar</h2>
+      <p class="muted">
+        Precisamos da sua renda líquida e das despesas essenciais para calcular
+        quanto sobra de verdade. Leva menos de 2 minutos.
+      </p>
+      <div class="inline-actions center-actions">
+        <a class="btn btn-primary" href="{% url 'accounts:profile' %}">Completar perfil</a>
+        <a class="btn btn-quiet" href="{% url 'core:onboarding' %}">Ver checklist</a>
+      </div>
+    </section>
+  {% else %}
+    <section class="dashboard-grid">
+      <article class="glass-card kpi-hero">
+        <div class="kpi-hero__top">
+          <p class="eyebrow">Disponível para dívidas</p>
+          <span class="badge badge--{{ health.risk_level }}">{{ health.risk_label }}</span>
+        </div>
+        <p class="kpi-hero__value">{{ health.free_cash|brl }}</p>
+        <p class="muted">
+          Renda líquida menos o piso essencial ({{ health.essential_floor|brl }})
+          e os mínimos das dívidas ({{ health.minimum_payments|brl }}).
+        </p>
+        <div class="kpi-hero__bar" aria-hidden="true">
+          <span style="width: {{ health.commitment_pct|default:0 }}%"></span>
+        </div>
+        <p class="kpi-hero__hint">
+          {{ debts.count }} dívida(s) ativa(s) · {{ recurrences }} recorrência(s).
+        </p>
+      </article>
+
+      <article class="card kpi">
+        <p class="kpi__label">Renda líquida</p>
+        <p class="kpi__value">{{ health.net_income|brl }}</p>
+        <p class="kpi__hint">Base do seu orçamento mensal.</p>
+      </article>
+
+      <article class="card kpi">
+        <p class="kpi__label">Dívida total</p>
+        <p class="kpi__value">{{ debts.total_balance|brl }}</p>
+        <p class="kpi__hint">{{ debts.count }} credor(es) ativo(s).</p>
+      </article>
+
+      <article class="card kpi">
+        <p class="kpi__label">Comprometimento</p>
+        <p class="kpi__value">
+          {% if health.commitment_pct is not None %}{{ health.commitment_pct|percent:1 }}{% else %}—{% endif %}
+        </p>
+        <p class="kpi__hint">Mínimos ÷ renda líquida.</p>
+      </article>
+    </section>
+
+    {% if alerts %}
+      <section class="alerts" aria-label="Alertas">
+        {% for alert in alerts %}
+          <div class="alert alert--{{ alert.severity }}">
+            <strong>{{ alert.code }}</strong>
+            <span>{{ alert.message }}</span>
+          </div>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    <section class="card plan-banner">
+      <div>
+        <p class="eyebrow">Plano de regularização</p>
+        {% if plan %}
+          <h2>
+            {% if plan.status == "active" %}Seu plano está pronto{% elif plan.status == "stale" %}Seu plano precisa ser recalculado{% elif plan.status == "infeasible" %}Seu plano ainda não fecha{% else %}Seu plano precisa de ajustes{% endif %}
+          </h2>
+          <p class="muted">
+            {% if plan.status == "active" %}
+              {{ plan.get_strategy_display }} · {{ plan.months_to_payoff }} meses · juros projetados de {{ plan.total_interest|brl }}{% if plan.label %} · {{ plan.label }}{% endif %}.
+            {% elif plan.status == "stale" %}
+              Seus dados mudaram desde a última geração. Recalcule para manter o calendário correto.
+            {% elif plan.status == "infeasible" %}
+              {{ plan.infeasible_reason }}
+            {% else %}
+              O prazo passou de 600 meses. Considere renegociar ou aumentar o valor mensal.
+            {% endif %}
+          </p>
+          <div class="inline-actions">
+            <a class="btn btn-primary" href="{% url 'plans:current' %}">Ver plano</a>
+            <a class="btn btn-outline" href="{% url 'plans:compare' %}">Comparar estratégias</a>
+            <a class="btn btn-quiet" href="{% url 'plans:simulator' %}">Simular cenário</a>
+          </div>
+          {% if plan.status == "active" and plan_adherence.due %}
+            <div class="progress" aria-hidden="true"><span style="width: {{ plan_adherence.pct }}%"></span></div>
+            <p class="muted">{{ plan_adherence.paid }}/{{ plan_adherence.due }} parcela(s) vencida(s) paga(s).</p>
+          {% endif %}
+        {% else %}
+          <h2>Gere seu plano de quitação</h2>
+          <p class="muted">
+            {% if has_debts %}
+              Você já tem dívidas cadastradas. O motor calcula a ordem, o calendário e os juros.
+            {% else %}
+              Cadastre suas dívidas para o motor calcular a melhor ordem de pagamento.
+            {% endif %}
+          </p>
+          <div class="inline-actions">
+            {% if has_debts %}
+              <a class="btn btn-primary" href="{% url 'plans:current' %}">Gerar plano</a>
+            {% else %}
+              <a class="btn btn-primary" href="{% url 'debts:create' %}">Cadastrar dívida</a>
+            {% endif %}
+            <a class="btn btn-outline" href="{% url 'plans:compare' %}">Comparar estratégias</a>
+          </div>
+        {% endif %}
+      </div>
+      <span class="badge {% if plan and plan.status == 'active' %}badge--healthy{% elif plan and plan.status == 'stale' %}badge--warning{% elif plan and plan.status == 'infeasible' %}badge--critical{% else %}badge--neutral{% endif %}">
+        {% if plan %}{{ plan.get_status_display }}{% else %}não gerado{% endif %}
+      </span>
+    </section>
+
+    <section class="grid grid--2">
+      <article class="card">
+        <div class="card__header">
+          <h2>Próximos passos</h2>
+          <span class="badge badge--neutral">{{ done_steps }}/{{ total_steps }}</span>
+        </div>
+        <div class="progress" aria-hidden="true">
+          <span style="width: {{ progress }}%"></span>
+        </div>
+        <ul class="checklist">
+          {% for step in steps %}
+            <li class="{% if step.done %}is-done{% endif %}">
+              <span class="checklist__mark" aria-hidden="true"></span>
+              <span>{{ step.label }}</span>
+              {% if not step.done %}
+                <small>
+                  {% if step.key == "profile" %}
+                    <a href="{% url 'accounts:profile' %}">fazer</a>
+                  {% elif step.key == "account" %}
+                    <a href="{% url 'finance:account_create' %}">fazer</a>
+                  {% elif step.key == "transaction" %}
+                    <a href="{% url 'finance:transaction_create' %}">fazer</a>
+                  {% elif step.key == "debt" %}
+                    <a href="{% url 'debts:create' %}">fazer</a>
+                  {% elif step.key == "plan" %}
+                    <a href="{% url 'plans:current' %}">fazer</a>
+                  {% endif %}
+                </small>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="card">
+        <div class="card__header">
+          <h2>Resumo do mês</h2>
+          <span class="badge badge--neutral">{{ month.month|date:"m/Y" }}</span>
+        </div>
+        <div class="mini-stats">
+          <div>
+            <span class="stat__label">Receitas</span>
+            <strong class="money-positive">{{ month.income|brl }}</strong>
+          </div>
+          <div>
+            <span class="stat__label">Despesas</span>
+            <strong class="money-negative">{{ month.expense|brl }}</strong>
+          </div>
+          <div>
+            <span class="stat__label">Saldo</span>
+            <strong>{{ month.balance|brl }}</strong>
+          </div>
+        </div>
+        <p class="muted">
+          {{ month.transaction_count }} lançamento(s).
+          {% if month.pending_expense %}Pendente: {{ month.pending_expense|brl }}.{% endif %}
+        </p>
+        <div class="inline-actions">
+          <a class="btn btn-outline" href="{% url 'finance:transaction_create' %}">Novo lançamento</a>
+          <a class="btn btn-quiet" href="{% url 'finance:transactions' %}">Ver transações</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="grid grid--2">
+      <article class="card">
+        <div class="card__header">
+          <h2>Últimos lançamentos</h2>
+          <a class="link-button" href="{% url 'finance:transactions' %}">Ver todos</a>
+        </div>
+        {% if recent_transactions %}
+          <ul class="entity-list">
+            {% for transaction in recent_transactions %}
+              <li class="entity-row">
+                <span class="entity-row__main">
+                  <strong>{{ transaction.description|default:"Sem descrição" }}</strong>
+                  <small>
+                    {{ transaction.transaction_date|date:"d/m" }} ·
+                    {{ transaction.category.name|default:"Sem categoria" }} ·
+                    {{ transaction.get_status_display }}
+                  </small>
+                </span>
+                <span class="num {% if transaction.kind == 'income' %}money-positive{% else %}money-negative{% endif %}">
+                  {% if transaction.kind == "income" %}+{% else %}−{% endif %}{{ transaction.amount|brl }}
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">Nenhum lançamento ainda. Comece pela primeira receita ou despesa.</p>
+          <a class="btn btn-primary" href="{% url 'finance:transaction_create' %}">Registrar lançamento</a>
+        {% endif %}
+      </article>
+
+      <article class="card">
+        <div class="card__header">
+          <h2>Atalhos</h2>
+        </div>
+        <div class="quick-actions">
+          <a class="quick-action" href="{% url 'finance:transaction_create' %}">
+            <strong>Novo lançamento</strong>
+            <small>receita ou despesa</small>
+          </a>
+          <a class="quick-action" href="{% url 'finance:installment_create' %}">
+            <strong>Compra parcelada</strong>
+            <small>dividir em parcelas</small>
+          </a>
+          <a class="quick-action" href="{% url 'debts:create' %}">
+            <strong>Nova dívida</strong>
+            <small>cartão, empréstimo…</small>
+          </a>
+          <a class="quick-action" href="{% url 'plans:current' %}">
+            <strong>Plano</strong>
+            <small>ordem e calendário</small>
+          </a>
+          <a class="quick-action" href="{% url 'finance:recurrence_create' %}">
+            <strong>Recorrência</strong>
+            <small>salário e contas fixas</small>
+          </a>
+          <a class="quick-action" href="{% url 'finance:categories' %}">
+            <strong>Categorias</strong>
+            <small>organizar gastos</small>
+          </a>
+          <a class="quick-action" href="{% url 'finance:accounts' %}">
+            <strong>Contas</strong>
+            <small>onde o dinheiro fica</small>
+          </a>
+        </div>
+      </article>
+    </section>
+
+    <section class="card">
+      <details class="calc">
+        <summary>Como calculamos o disponível</summary>
+        <div class="calc__body">
+          <p><strong>Piso essencial:</strong> maior valor entre despesas essenciais e mínimo existencial.</p>
+          <p><strong>Orçamento para dívidas:</strong> renda líquida − piso essencial − outras despesas planejadas.</p>
+          <p><strong>Disponível:</strong> orçamento para dívidas − soma das parcelas mínimas.</p>
+          <p class="muted">O plano de quitação e as simulações usam esse orçamento e as parcelas mínimas.</p>
+        </div>
+      </details>
+    </section>
+  {% endif %}
+{% endblock %}

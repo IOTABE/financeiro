@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Gerar plano — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Plano de regularização</p>
+      <h1>Transforme o diagnóstico em um plano</h1>
+      <p class="muted">O motor compara estratégias, projeta juros e monta o calendário mês a mês.</p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'core:dashboard' %}">Voltar ao início</a>
+  </header>
+
+  {% if not has_debts %}
+    <div class="alert alert--warning" role="alert">
+      <strong>Sem dívidas</strong>
+      <span>Cadastre pelo menos uma dívida ativa para o motor calcular o plano.</span>
+      <a class="link-button" href="{% url 'debts:create' %}">Cadastrar dívida</a>
+    </div>
+  {% endif %}
+
+  <div class="grid grid--2">
+    <section class="glass-card">
+      <p class="eyebrow">Próximo passo</p>
+      <h2>Gerar plano</h2>
+      <p class="muted">
+        O plano respeita o mínimo existencial e usa o orçamento disponível do seu perfil.
+      </p>
+      {% if form.non_field_errors %}
+        <div class="alert alert--critical" role="alert">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+      <form method="post" action="{% url 'plans:generate' %}" novalidate class="form">
+        {% csrf_token %}
+        {% include "partials/field.html" with field=form.strategy %}
+        {% include "partials/field.html" with field=form.start_month %}
+        <div class="grid grid--2">
+          {% include "partials/field.html" with field=form.extra_payment %}
+          {% include "partials/field.html" with field=form.extra_payment_months %}
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" {% if not has_debts %}disabled{% endif %}>Gerar meu plano</button>
+          <a class="btn btn-outline" href="{% url 'plans:compare' %}">Comparar estratégias</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="stack">
+      <article class="card">
+        <h3>Avalanche</h3>
+        <p class="muted">Ataca a maior taxa primeiro. Tende a economizar mais juros.</p>
+      </article>
+      <article class="card">
+        <h3>Snowball</h3>
+        <p class="muted">Ataca o menor saldo primeiro. Gera vitórias rápidas.</p>
+      </article>
+      <article class="card">
+        <h3>Híbrida (recomendada)</h3>
+        <p class="muted">Quick wins no começo e avalanche no restante. Equilibra motivação e juros.</p>
+      </article>
+    </aside>
+  </div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Conta</p>
+      <h1>{{ title }}</h1>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'finance:accounts' %}">Voltar</a>
+  </header>
+
+  <section class="card form-card form-card--narrow">
+    <form method="post" novalidate class="form">
+      {% csrf_token %}
+      {% include "partials/field.html" with field=form.name %}
+      {% include "partials/field.html" with field=form.type %}
+      {% include "partials/field.html" with field=form.opening_balance %}
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a class="btn btn-quiet" href="{% url 'finance:accounts' %}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

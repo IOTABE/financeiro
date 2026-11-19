@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Categorias — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Organização</p>
+      <h1>Categorias</h1>
+      <p class="muted">Classifique receitas e despesas. Marque o que é essencial.</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'finance:category_create' %}">Nova categoria</a>
+  </header>
+
+  <div class="grid grid--2">
+    <section class="card">
+      <div class="card__header">
+        <h2>Receitas</h2>
+        <span class="badge badge--neutral">{{ income_categories|length }}</span>
+      </div>
+      {% if income_categories %}
+        <ul class="entity-list">
+          {% for category in income_categories %}
+            <li class="entity-row">
+              <span class="entity-dot" style="background: {{ category.color|default:'#16A34A' }}"></span>
+              <span class="entity-row__main">
+                <strong>{{ category.name }}</strong>
+                {% if category.is_essential %}<small>essencial</small>{% endif %}
+              </span>
+              <span class="row-actions">
+                <a href="{% url 'finance:category_update' category.pk %}">Editar</a>
+                <form method="post" action="{% url 'finance:category_archive' category.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="link-button">Arquivar</button>
+                </form>
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nenhuma categoria de receita.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card__header">
+        <h2>Despesas</h2>
+        <span class="badge badge--neutral">{{ expense_categories|length }}</span>
+      </div>
+      {% if expense_categories %}
+        <ul class="entity-list">
+          {% for category in expense_categories %}
+            <li class="entity-row">
+              <span class="entity-dot" style="background: {{ category.color|default:'#DC2626' }}"></span>
+              <span class="entity-row__main">
+                <strong>{{ category.name }}</strong>
+                {% if category.is_essential %}<small>essencial</small>{% endif %}
+              </span>
+              <span class="row-actions">
+                <a href="{% url 'finance:category_update' category.pk %}">Editar</a>
+                <form method="post" action="{% url 'finance:category_archive' category.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="link-button">Arquivar</button>
+                </form>
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Nenhuma categoria de despesa.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if archived %}
+    <section class="card archived-card">
+      <div class="card__header">
+        <h2>Arquivadas</h2>
+        <span class="badge badge--neutral">{{ archived|length }}</span>
+      </div>
+      <ul class="entity-list">
+        {% for category in archived %}
+          <li class="entity-row is-muted">
+            <span class="entity-dot" style="background: {{ category.color|default:'#94A3B8' }}"></span>
+            <span class="entity-row__main">
+              <strong>{{ category.name }}</strong>
+              <small>{{ category.get_kind_display }} · arquivada</small>
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endblock %}
