@@ -24,7 +24,7 @@ from .forms import (
     TransactionForm,
 )
 from .importers import ImportError as ImportParseError
-from .importers import ParsedStatement, ParsedTransaction, parse_ofx
+from .importers import ParsedStatement, ParsedTransaction, parse_statement
 from .models import Account, Category, Recurrence, Transaction
 from .services import apply_import, build_import_preview, materialize_user_recurrences
 
@@ -325,6 +325,7 @@ def account_archive(request, pk):
 def _serialize_import(parsed: ParsedStatement, account) -> dict:
     return {
         "account_id": str(account.pk),
+        "source": parsed.source,
         "source_account_id": parsed.account_id,
         "transactions": [
             {
@@ -350,15 +351,18 @@ def _deserialize_import(data: dict) -> ParsedStatement:
         )
         for item in data["transactions"]
     ]
-    return ParsedStatement(account_id=data["source_account_id"], transactions=transactions)
+    return ParsedStatement(
+        source=data["source"], account_id=data["source_account_id"], transactions=transactions
+    )
 
 
 @login_required
 def import_start(request):
     form = ImportForm(request.POST or None, request.FILES or None, user=request.user)
     if request.method == "POST" and form.is_valid():
+        uploaded = form.cleaned_data["file"]
         try:
-            parsed = parse_ofx(form.cleaned_data["file"].read())
+            parsed = parse_statement(uploaded.name, uploaded.read())
         except ImportParseError as exc:
             form.add_error("file", str(exc))
         else:
@@ -412,6 +416,7 @@ def import_confirm(request):
     created, skipped = apply_import(
         user=request.user,
         account=account,
+        source=data["source"],
         source_account_id=data["source_account_id"],
         rows=rows,
     )

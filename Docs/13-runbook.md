@@ -240,7 +240,7 @@ sem issues com settings de produção.
 | Auth e perfil | ✅ testes |
 | Categorias e contas | ✅ CRUD, seeds e arquivamento |
 | Transações | ✅ CRUD, filtros, parcelamento e soft delete |
-| Importação de extratos | ✅ OFX com categorização assistida e deduplicação |
+| Importação de extratos | ✅ OFX e PDF (Santander) com categorização assistida e deduplicação |
 | Recorrências | ✅ materialização idempotente + task Celery |
 | Dívidas e pagamentos | ✅ CRUD, juros/principal e idempotência |
 | Motor e plano | ✅ casos de ouro, snapshot, calendário e stale |

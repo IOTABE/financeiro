@@ -46,7 +46,7 @@ consiga:
 | 11 | [11-design-system-material-glass.md](11-design-system-material-glass.md) | Design system: Material Design 3 + Glassmorphism, tokens, componentes, acessibilidade e implementação | Produto / Design / Engenharia |
 | 12 | [12-plano-de-execucao.md](12-plano-de-execucao.md) | Plano de execução, fases, tarefas, quality gates e status | Todos |
 | 13 | [13-runbook.md](13-runbook.md) | Runbook de desenvolvimento, deploy, backup, restore e troubleshooting | Engenharia / DevOps |
-| 14 | [14-importacao-de-extratos.md](14-importacao-de-extratos.md) | Importação de extratos OFX: passo a passo funcional e técnico, categorização assistida e deduplicação | Produto / Engenharia |
+| 14 | [14-importacao-de-extratos.md](14-importacao-de-extratos.md) | Importação de extratos OFX e PDF: passo a passo funcional e técnico, categorização assistida e deduplicação | Produto / Engenharia |
 
 ---
 

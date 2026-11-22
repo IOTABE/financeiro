@@ -241,7 +241,9 @@ class RecurrenceForm(UserScopedFormMixin, forms.ModelForm):
 
 
 class ImportForm(UserScopedFormMixin, forms.Form):
-    file = forms.FileField(label="Arquivo do extrato")
+    file = forms.FileField(
+        label="Arquivo do extrato", widget=forms.FileInput(attrs={"accept": ".ofx,.pdf"})
+    )
     account = forms.ModelChoiceField(label="Conta", queryset=Account.objects.none())
 
     def __init__(self, *args, user=None, **kwargs):
@@ -255,6 +257,6 @@ class ImportForm(UserScopedFormMixin, forms.Form):
     def clean_file(self):
         uploaded = self.cleaned_data["file"]
         name = (uploaded.name or "").lower()
-        if not name.endswith(".ofx"):
-            raise forms.ValidationError("Envie um arquivo no formato OFX (.ofx).")
+        if not (name.endswith(".ofx") or name.endswith(".pdf")):
+            raise forms.ValidationError("Envie um arquivo no formato OFX (.ofx) ou PDF (.pdf).")
         return uploaded

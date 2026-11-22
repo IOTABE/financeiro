@@ -228,16 +228,20 @@ def build_import_preview(user, parsed) -> list[dict]:
         (rule.kind, rule.pattern): str(rule.category_id)
         for rule in CategoryRule.objects.filter(user=user).select_related("category")
     }
+    keys = [
+        idempotency_key(parsed.source, parsed.account_id, item.fitid)
+        for item in parsed.transactions
+    ]
     existing_keys = set(
         Transaction.objects.filter(
-            user=user, idempotency_key__startswith="ofx:", deleted_at__isnull=True
+            user=user, idempotency_key__in=keys, deleted_at__isnull=True
         ).values_list("idempotency_key", flat=True)
     )
 
     preview: list[dict] = []
     for item in parsed.transactions:
         pattern = normalize_description(item.description)
-        key = idempotency_key(parsed.account_id, item.fitid)
+        key = idempotency_key(parsed.source, parsed.account_id, item.fitid)
         preview.append(
             {
                 "kind": item.kind,
@@ -253,12 +257,14 @@ def build_import_preview(user, parsed) -> list[dict]:
     return preview
 
 
-def apply_import(*, user, account, source_account_id: str, rows: list[dict]) -> tuple[int, int]:
+def apply_import(
+    *, user, account, source: str, source_account_id: str, rows: list[dict]
+) -> tuple[int, int]:
     created = 0
     skipped = 0
     with db_transaction.atomic():
         for row in rows:
-            key = idempotency_key(source_account_id, row["fitid"])
+            key = idempotency_key(source, source_account_id, row["fitid"])
             if Transaction.objects.filter(
                 user=user, idempotency_key=key, deleted_at__isnull=True
             ).exists():

@@ -2,17 +2,32 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from apps.finance.importers import normalize_description, parse_ofx
+from apps.finance.importers import (
+    ImportError as ImportParseError,
+)
+from apps.finance.importers import (
+    SantanderPdfParser,
+    detect_format,
+    normalize_description,
+    parse_ofx,
+    parse_pdf,
+)
 from apps.finance.models import Account, Category, CategoryRule, Transaction
 from apps.finance.services import apply_import, build_import_preview
 
 User = get_user_model()
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+PDF_SAMPLE_PATH = (
+    BASE_DIR / "extrato_25-08-2026_a_22-11-2026_660561DE-E868-4CC6-B708-652655CE5878.pdf"
+)
 
 OFX_SAMPLE = """<OFX>
 <SIGNONMSGSRSV1><SONRS><STATUS><CODE>0</CODE><SEVERITY>INFO</SEVERITY></STATUS></SONRS></SIGNONMSGSRSV1>
@@ -78,6 +93,7 @@ class ImportServiceTests(TestCase):
         created, skipped = apply_import(
             user=self.user,
             account=self.account,
+            source="ofx",
             source_account_id="7512674-7",
             rows=self._rows(category_id=str(self.category.pk)),
         )
@@ -97,12 +113,14 @@ class ImportServiceTests(TestCase):
         apply_import(
             user=self.user,
             account=self.account,
+            source="ofx",
             source_account_id="7512674-7",
             rows=self._rows(category_id=str(self.category.pk)),
         )
         created, skipped = apply_import(
             user=self.user,
             account=self.account,
+            source="ofx",
             source_account_id="7512674-7",
             rows=self._rows(category_id=str(self.category.pk)),
         )
@@ -113,6 +131,7 @@ class ImportServiceTests(TestCase):
         apply_import(
             user=self.user,
             account=self.account,
+            source="ofx",
             source_account_id="7512674-7",
             rows=self._rows(category_id=str(self.category.pk)),
         )
@@ -160,13 +179,144 @@ class ImportViewTests(TestCase):
             ).exists()
         )
 
-    def test_rejects_non_ofx(self):
+    def test_rejects_unsupported_extension(self):
         response = self.client.post(
             reverse("finance:import_start"),
             {
                 "account": str(self.account.pk),
-                "file": SimpleUploadedFile("extrato.pdf", b"%PDF-1.4 fake"),
+                "file": SimpleUploadedFile("extrato.txt", b"qualquer coisa"),
             },
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "formato OFX")
+
+
+SANTANDER_TEXT = """EXTRATO DE CONTA
+Agência: 2302 | Conta: 01.003475.9
+Período: 25/08/2026 a 22/11/2026
+Nome: Joao
+Saldo inicial Entradas Saídas Saldo final
+-R$ 2.470,38 R$ 17.155,33 R$ 17.621,84 -R$ 2.936,89
+DETALHE DOS MOVIMENTOS
+Data Descrição Valor Saldo
+Quarta, 18 de novembro
+Pix enviado
+18/11/2026 -R$ 15,00 -R$ 2.936,89
+Davi Barbosa Costa Da
+Segunda, 16 de novembro
+Debito aut. titulo capitalizacao
+16/11/2026 -R$ 50,00 -R$ 2.921,89
+Icj60212075
+Ted conta salario
+16/11/2026 R$ 5.638,41 R$ 2.365,14
+Joao barbosa da silva
+1/1"""
+
+
+def _minimal_pdf(stream: bytes = b"") -> bytes:
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for index, obj in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{index} 0 obj\n".encode() + obj + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode() + b"0000000000 65535 f \n"
+    for index in range(1, len(objects) + 1):
+        out += f"{offsets[index]:010d} 00000 n \n".encode()
+    out += (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{xref}\n%%EOF\n".encode()
+    )
+    return bytes(out)
+
+
+class SantanderPdfParserTests(TestCase):
+    def setUp(self):
+        self.parser = SantanderPdfParser()
+
+    def test_detect(self):
+        self.assertTrue(self.parser.detect(SANTANDER_TEXT))
+        self.assertFalse(self.parser.detect("EXTRATO DE CONTA\nSem detalhe dos movimentos"))
+
+    def test_parse_extracts_transactions(self):
+        statement = self.parser.parse(SANTANDER_TEXT)
+        self.assertEqual(statement.source, "pdf")
+        self.assertEqual(statement.account_id, "01.003475.9")
+        self.assertEqual(len(statement.transactions), 3)
+
+        debit, debit2, credit = statement.transactions
+        self.assertEqual(debit.kind, Transaction.Kind.EXPENSE)
+        self.assertEqual(debit.amount, Decimal("15.00"))
+        self.assertEqual(debit.transaction_date, date(2026, 11, 18))
+        self.assertEqual(debit.description, "Pix enviado - Davi Barbosa Costa Da")
+
+        self.assertEqual(debit2.description, "Debito aut. titulo capitalizacao - Icj60212075")
+
+        self.assertEqual(credit.kind, Transaction.Kind.INCOME)
+        self.assertEqual(credit.amount, Decimal("5638.41"))
+        self.assertEqual(credit.description, "Ted conta salario - Joao barbosa da silva")
+
+    def test_parse_generates_unique_fitids(self):
+        statement = self.parser.parse(SANTANDER_TEXT)
+        fitids = [item.fitid for item in statement.transactions]
+        self.assertEqual(len(fitids), len(set(fitids)))
+
+    def test_parse_inline_description(self):
+        text = (
+            "EXTRATO DE CONTA\n"
+            "Agência: 2302 | Conta: 01.003475.9\n"
+            "DETALHE DOS MOVIMENTOS\n"
+            "Data Descrição Valor Saldo\n"
+            "Quarta, 11 de novembro\n"
+            "11/11/2026 Remuneracao aplicacao automatica R$ 0,01 -R$ 2.564,84\n"
+            "Pagamento cartao credito bce\n"
+            "11/11/2026 -R$ 1.635,08 -R$ 2.564,85\n"
+            "Banco Santander (br)\n"
+        )
+        statement = self.parser.parse(text)
+        self.assertEqual(len(statement.transactions), 2)
+
+        remuneracao = statement.transactions[0]
+        self.assertEqual(remuneracao.kind, Transaction.Kind.INCOME)
+        self.assertEqual(remuneracao.amount, Decimal("0.01"))
+        self.assertEqual(remuneracao.description, "Remuneracao aplicacao automatica")
+
+        fatura = statement.transactions[1]
+        self.assertEqual(fatura.kind, Transaction.Kind.EXPENSE)
+        self.assertEqual(fatura.amount, Decimal("1635.08"))
+        self.assertEqual(fatura.description, "Pagamento cartao credito bce - Banco Santander (br)")
+
+
+class PdfRoutingTests(TestCase):
+    def test_detect_format(self):
+        self.assertEqual(detect_format("x.pdf", b"%PDF-1.4"), "pdf")
+        self.assertEqual(detect_format("x.ofx", b"<OFX>"), "ofx")
+        with self.assertRaises(ImportParseError):
+            detect_format("x.txt", b"whatever")
+
+    def test_parse_pdf_no_text(self):
+        with self.assertRaises(ImportParseError):
+            parse_pdf(_minimal_pdf())
+
+    def test_parse_pdf_unknown_layout(self):
+        stream = b"BT /F1 12 Tf 50 700 Td (HELLO) Tj ET"
+        with self.assertRaises(ImportParseError):
+            parse_pdf(_minimal_pdf(stream))
+
+    def test_parse_pdf_real_file(self):
+        if not PDF_SAMPLE_PATH.exists():
+            self.skipTest("Arquivo de exemplo PDF não disponível")
+        parsed = parse_pdf(PDF_SAMPLE_PATH.read_bytes())
+        self.assertEqual(parsed.source, "pdf")
+        self.assertGreater(len(parsed.transactions), 10)
+        for item in parsed.transactions:
+            self.assertIn(item.kind, {Transaction.Kind.INCOME, Transaction.Kind.EXPENSE})
+            self.assertTrue(item.amount > 0)

@@ -1,20 +1,21 @@
-# 14 — Importação de Extratos Bancários (OFX)
+# 14 — Importação de Extratos Bancários (OFX e PDF)
 
 **Objetivo:** descrever o passo a passo da importação de extratos bancários em
-formato OFX, incluindo o fluxo funcional (UX), o fluxo técnico, a categorização
-assistida com reaproveitamento de regras e a deduplicação.
+formato OFX e PDF, incluindo o fluxo funcional (UX), o fluxo técnico, a
+categorização assistida com reaproveitamento de regras e a deduplicação.
 
-**Status:** Fase 1 implementada (OFX). Fase 2 (PDF) esboçada, não implementada.
+**Status:** OFX implementado (Nubank e genérico via `ofxparse`). PDF implementado
+para o layout **Santander** (texto); outros bancos exigem novo parser.
 **Última atualização:** 2026-11-22
 
 ---
 
 ## 1. Visão geral
 
-A importação transforma um extrato bancário OFX em lançamentos (`Transaction`)
-no app, sem exigir digitação manual. O fluxo tem quatro etapas:
+A importação transforma um extrato bancário OFX ou PDF em lançamentos
+(`Transaction`) no app, sem exigir digitação manual. O fluxo tem quatro etapas:
 
-1. **Upload** do arquivo `.ofx` e escolha da conta de destino.
+1. **Upload** do arquivo `.ofx` ou `.pdf` e escolha da conta de destino.
 2. **Pré-visualização** dos lançamentos detectados.
 3. **Categorização** dos itens ainda sem categoria.
 4. **Confirmação** — grava as transações e aprende as categorias escolhidas.
@@ -35,13 +36,17 @@ Em **Transações**, clique em **"Importar extrato"** (ao lado de "Compra parcel
 
 ### 2.2 Enviar o arquivo
 
-1. Selecione o arquivo `.ofx` (ex.: `NU_75126747_01JAN2026_31JAN2026.ofx`).
+1. Selecione o arquivo `.ofx` (ex.: `NU_75126747_01JAN2026_31JAN2026.ofx`) ou
+   `.pdf` (ex.: extrato Santander).
 2. Escolha a **conta** de destino (padrão: "Conta principal").
 3. Clique em **"Continuar"**.
 
-- Se o arquivo não terminar em `.ofx`, o formulário exibe
-  *"Envie um arquivo no formato OFX (.ofx)."*.
-- Se o conteúdo for inválido, exibe *"Não foi possível ler o arquivo OFX."*.
+- Se o arquivo não terminar em `.ofx` nem `.pdf`, o formulário exibe
+  *"Envie um arquivo no formato OFX (.ofx) ou PDF (.pdf)."*.
+- Se o conteúdo for inválido, exibe uma mensagem específica: *"Não foi possível
+  ler o arquivo OFX."* ou *"Não foi possível ler o arquivo PDF."*.
+- PDF escaneado (sem texto selecionável) ou de layout não reconhecido gera erro
+  amigável, mantendo o usuário na tela de upload.
 
 ### 2.3 Revisar a pré-visualização
 
@@ -68,7 +73,13 @@ resumo: *"Importação concluída: N lançamento(s) criado(s)."* (e, se houver,
 
 ## 3. Passo a passo técnico
 
-### 3.1 Parser (`apps/finance/importers.py`)
+### 3.1 Roteador de formato (`apps/finance/importers.py`)
+
+`detect_format(filename, content)` decide entre OFX e PDF pela assinatura do
+conteúdo (`%PDF`, `OFXHEADER:`, `<OFX>`) com fallback na extensão.
+`parse_statement(filename, content)` roteia para `parse_ofx` ou `parse_pdf`.
+
+### 3.2 Parser OFX
 
 `parse_ofx(content: bytes) -> ParsedStatement`:
 
@@ -84,13 +95,39 @@ resumo: *"Importação concluída: N lançamento(s) criado(s)."* (e, se houver,
    - **identificador** (`fitid`): de `FITID`.
 4. Retorna também `account_id` (o `ACCTID` do banco, ex.: `7512674-7`).
 
+### 3.3 Parser PDF
+
+`parse_pdf(content: bytes) -> ParsedStatement`:
+
+1. Extrai o texto com `pdfplumber` (`_extract_pdf_text`).
+2. Sem texto selecionável → erro *"O PDF não contém texto selecionável (extrato
+   escaneado)..."*.
+3. Itera `PDF_PARSERS` (registry) e usa o primeiro cujo `detect(text)` retorna
+   `True`; hoje contém apenas `SantanderPdfParser`.
+4. Layout não reconhecido → erro *"Não reconhecemos o layout deste extrato em PDF."*.
+
+**`SantanderPdfParser`** reconhece o padrão "EXTRATO DE CONTA" + "DETALHE DOS
+MOVIMENTOS" e extrai cada lançamento por linhas:
+
+- **Linha de valor** (`DD/MM/YYYY ±R$ valor ±R$ saldo`) define data e valor;
+- a **descrição** é a linha imediatamente anterior (ex.: "Pix enviado"), ou
+  embutida na própria linha de valor (ex.: "Remuneracao aplicacao automatica");
+- a **contraparte** é a linha seguinte, concatenada à descrição
+  (`"Pix enviado - Davi Barbosa Costa Da"`); linhas `Periodo:` são ignoradas.
+- `account_id` vem do cabeçalho (`Conta: 01.003475.9`).
+
+### 3.4 Normalização e idempotência
+
 `normalize_description(value)` normaliza a descrição para casar regras:
 minúsculas, `strip`, espaços colapsados — ex.: `"  Pagamento   DE Fatura "` →
 `"pagamento de fatura"`.
 
-`idempotency_key(account_id, fitid)` → `f"ofx:{account_id}:{fitid}"`.
+`idempotency_key(source, account_id, fitid)` → `f"{source}:{account_id}:{fitid}"`
+(`source` é `ofx` ou `pdf`). Para OFX, `fitid` é o `FITID` do banco; para PDF,
+um hash determinístico SHA-256 de `data|valor|descrição` (com sufixo `-N` para
+desambiguar lançamentos idênticos dentro do mesmo arquivo).
 
-### 3.2 Serialização na sessão
+### 3.5 Serialização na sessão
 
 O resultado do parse é armazenado na sessão (`request.session["import_data"]`)
 para sobreviver ao redirecionamento upload → preview → confirm:
@@ -98,6 +135,7 @@ para sobreviver ao redirecionamento upload → preview → confirm:
 ```json
 {
   "account_id": "<pk da Conta destino>",
+  "source": "ofx",
   "source_account_id": "7512674-7",
   "transactions": [
     {"kind": "expense", "amount": "50.13", "transaction_date": "2026-01-02",
@@ -109,7 +147,7 @@ para sobreviver ao redirecionamento upload → preview → confirm:
 `Decimal` e `date` são serializados como string/ISO e reconstruídos nas views
 via `_deserialize_import`.
 
-### 3.3 Pré-visualização (`services.build_import_preview`)
+### 3.6 Pré-visualização (`services.build_import_preview`)
 
 Para cada lançamento do extrato:
 
@@ -118,7 +156,7 @@ Para cada lançamento do extrato:
    categoria.
 3. Verifica se `idempotency_key` já existe → marca `duplicate`.
 
-### 3.4 Aplicação (`services.apply_import`)
+### 3.7 Aplicação (`services.apply_import`)
 
 Dentro de `transaction.atomic()`, para cada linha:
 
@@ -159,14 +197,17 @@ Migration: `finance/0002_categoryrule.py`.
 ## 5. Deduplicação e idempotência
 
 A deduplicação reusa o constraint existente `uq_transaction_user_idempotency`
-(`user`, `idempotency_key`). A chave `ofx:{account_id}:{fitid}` garante que:
+(`user`, `idempotency_key`). A chave `{source}:{account_id}:{fitid}` garante que:
 
 - Importar o mesmo arquivo duas vezes não cria duplicatas (os itens aparecem como
   "Ignorado" na pré-visualização).
 - Extratos de contas diferentes não colidem (o `account_id` entra na chave).
+- OFX e PDF da mesma conta não colidem (o `source` entra na chave).
 
-> O `FITID` é o identificador único que o banco atribui a cada lançamento no OFX;
-> por isso é a base natural da idempotência.
+> OFX usa o `FITID` (identificador único do banco). PDF usa hash determinístico
+> de `data|valor|descrição`, com contador interno para desambiguar lançamentos
+> idênticos no mesmo arquivo — o que também permite deduplicar reimportações e
+> extratos sobrepostos com o mesmo conteúdo.
 
 ---
 
@@ -184,6 +225,10 @@ A deduplicação reusa o constraint existente `uq_transaction_user_idempotency`
 - **RN-IMP-06** — Arquivo sem lançamentos → *"O extrato não contém lançamentos."*.
 - **RN-IMP-07** — Extratos de formato inesperado não quebram a importação; geram
   mensagem amigável e mantêm o usuário na tela de upload.
+- **RN-IMP-08** — PDF escaneado (sem texto) ou layout não reconhecido → erro
+  amigável; não há OCR no MVP.
+- **RN-IMP-09** — No PDF, `fitid` é derivado (hash) por falta de `FITID`; colisões
+  dentro do mesmo arquivo são desambiguadas com sufixo sequencial.
 
 ---
 
@@ -191,7 +236,7 @@ A deduplicação reusa o constraint existente `uq_transaction_user_idempotency`
 
 | Arquivo | Papel |
 |---------|-------|
-| `src/apps/finance/importers.py` | Parser OFX, normalização, chave de idempotência |
+| `src/apps/finance/importers.py` | Roteador de formato, parser OFX, parsers PDF (registry + Santander), normalização e chave de idempotência |
 | `src/apps/finance/models.py` | Modelo `CategoryRule` |
 | `src/apps/finance/services.py` | `build_import_preview`, `apply_import` |
 | `src/apps/finance/forms.py` | `ImportForm` (upload + conta) |
@@ -199,8 +244,8 @@ A deduplicação reusa o constraint existente `uq_transaction_user_idempotency`
 | `src/apps/finance/urls.py` | Rotas de importação |
 | `src/apps/finance/templates/finance/import_form.html` | Tela de upload |
 | `src/apps/finance/templates/finance/import_preview.html` | Tela de revisão |
-| `tests/test_import.py` | Testes do fluxo completo |
-| `pyproject.toml` / `requirements/base.txt` | Dependência `ofxparse` |
+| `tests/test_import.py` | Testes do fluxo completo (OFX e PDF) |
+| `pyproject.toml` / `requirements/base.txt` | Dependências `ofxparse` e `pdfplumber` |
 
 ---
 
@@ -208,11 +253,15 @@ A deduplicação reusa o constraint existente `uq_transaction_user_idempotency`
 
 `tests/test_import.py` cobre:
 
-- Parser: valores, datas, tipo por sinal e `account_id`.
+- Parser OFX: valores, datas, tipo por sinal e `account_id`.
 - Normalização da descrição.
 - `apply_import`: criação de transações + regra; idempotência (2ª importação = 0 criados).
 - `build_import_preview`: regra existente aplicada e duplicado sinalizado.
-- Fluxo de views: upload → preview → confirm; rejeição de arquivo não-OFX.
+- Fluxo de views: upload → preview → confirm; rejeição de extensão não suportada.
+- Parser PDF Santander: detecção, extração (incluindo descrição embutida na linha
+  de valor), `account_id`, `fitid` únicos.
+- Roteamento: `detect_format`, PDF sem texto, PDF de layout desconhecido e
+  integração com um arquivo PDF real (pula se ausente).
 
 Comandos:
 
@@ -224,22 +273,29 @@ Comandos:
 
 ---
 
-## 9. Fase 2 (esboço): importação de PDF
+## 9. Extensibilidade do parser PDF
 
-Não implementada. Resumo da abordagem prevista:
+Cada banco tem um `BasePdfParser` com `detect(text)` e `parse(text)`, registrado
+em `PDF_PARSERS`. Para suportar um novo layout:
 
-- Dependência `pdfplumber` para extração de texto.
-- Parser plugável por banco (`NubankPdfParser` etc.), detectado por cabeçalho/rodapé.
-- Como PDF não tem `FITID`, derivar `fitid` determinístico (hash de data + valor +
-  descrição) para manter a deduplicação.
-- PDF escaneado (sem camada de texto) → erro amigável, sem OCR no MVP.
-- Itens com confiança baixa são sinalizados para revisão manual.
+1. Criar a classe com `detect` (assinatura de cabeçalho) e `parse`.
+2. Adicioná-la à lista `PDF_PARSERS`.
+3. Adicionar fixture de texto + testes.
+
+**Bancos já suportados:**
+
+| Banco | Formato | Status |
+|-------|---------|--------|
+| Nubank (e OFX genérico) | OFX | ✅ implementado |
+| Santander | PDF (texto) | ✅ implementado |
+| Outros bancos (PDF) | — | ⏳ exigem novo parser |
 
 ---
 
 ## 10. Como manter
 
-- Adicionou um novo banco (OFX) com layout diferente? Ajuste apenas o parser
-  (`importers.py`) e adicione fixture/teste; o restante do fluxo é reutilizado.
+- Adicionou um novo banco (OFX ou PDF) com layout diferente? Ajuste apenas o
+  parser correspondente (`importers.py`) e adicione fixture/teste; o restante do
+  fluxo é reutilizado.
 - Alterou a forma de casar regras? Atualize `normalize_description` e a seção 4.
-- Subiu para PDF? Atualize a seção 9 e o status no cabeçalho.
+- Mudou a derivação de `fitid` no PDF? Atualize a seção 5 e os testes.
