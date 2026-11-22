@@ -11,6 +11,7 @@
       <p class="muted">Receitas e despesas do período. {{ page.paginator.count }} lançamento(s).</p>
     </div>
     <div class="inline-actions">
+      <a class="btn btn-outline" href="{% url 'finance:import_start' %}">Importar extrato</a>
       <a class="btn btn-outline" href="{% url 'finance:installment_create' %}">Compra parcelada</a>
       <a class="btn btn-primary" href="{% url 'finance:transaction_create' %}">Novo lançamento</a>
     </div>

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load money %}
+
+{% block title %}Revisar importação — {{ APP_NAME }}{% endblock %}
+
+{% block content %}
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Importação</p>
+      <h1>Revisar lançamentos</h1>
+      <p class="muted">
+        {{ preview|length }} lançamento(s) encontrado(s). Categorize os que ainda não têm categoria —
+        a escolha será reutilizada nos próximos extratos.
+      </p>
+    </div>
+    <a class="btn btn-quiet" href="{% url 'finance:import_start' %}">Voltar</a>
+  </header>
+
+  <form method="post" action="{% url 'finance:import_confirm' %}">
+    {% csrf_token %}
+    <section class="card table-wrap">
+      <table class="table">
+        <caption class="sr-only">Pré-visualização dos lançamentos a importar</caption>
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col">Descrição</th>
+            <th scope="col" class="num">Valor</th>
+            <th scope="col">Categoria</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in preview %}
+            <tr>
+              <td>{{ item.transaction_date|date:"d/m/Y" }}</td>
+              <td>{{ item.description }}</td>
+              <td class="num {% if item.kind == 'income' %}money-positive{% else %}money-negative{% endif %}">
+                {% if item.kind == "income" %}+{% else %}−{% endif %}{{ item.amount|brl }}
+              </td>
+              <td>
+                {% if item.duplicate %}
+                  <span class="muted">Já importado</span>
+                {% else %}
+                  <select class="input select" name="category_{{ forloop.counter0 }}">
+                    <option value="">— Sem categoria —</option>
+                    {% for category in categories %}
+                      {% if category.kind == item.kind %}
+                        <option value="{{ category.pk }}" {% if item.category_id|stringformat:"s" == category.pk|stringformat:"s" %}selected{% endif %}>
+                          {{ category.name }}
+                        </option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                {% endif %}
+              </td>
+              <td>
+                {% if item.duplicate %}
+                  <span class="status status--pending">Ignorado</span>
+                {% elif item.category_id %}
+                  <span class="muted">automático</span>
+                {% else %}
+                  <span class="status status--pending">Requer categoria</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Confirmar importação</button>
+      <a class="btn btn-quiet" href="{% url 'finance:transactions' %}">Cancelar</a>
+    </div>
+  </form>
+{% endblock %}

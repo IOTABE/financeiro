@@ -238,3 +238,23 @@ class RecurrenceForm(UserScopedFormMixin, forms.ModelForm):
         )
         self.instance = recurrence
         return recurrence
+
+
+class ImportForm(UserScopedFormMixin, forms.Form):
+    file = forms.FileField(label="Arquivo do extrato")
+    account = forms.ModelChoiceField(label="Conta", queryset=Account.objects.none())
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, user=user, **kwargs)
+        self.fields["account"].queryset = Account.objects.filter(
+            user=user, archived_at__isnull=True
+        ).order_by("name")
+        if self.fields["account"].queryset.exists():
+            self.fields["account"].initial = self.fields["account"].queryset.first()
+
+    def clean_file(self):
+        uploaded = self.cleaned_data["file"]
+        name = (uploaded.name or "").lower()
+        if not name.endswith(".ofx"):
+            raise forms.ValidationError("Envie um arquivo no formato OFX (.ofx).")
+        return uploaded

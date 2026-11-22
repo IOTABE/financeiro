@@ -9,7 +9,8 @@ from django.utils import timezone
 
 from apps.core.dates import add_months, due_date_in_month, month_start
 
-from .models import Account, Category, InstallmentGroup, Recurrence, Transaction
+from .importers import idempotency_key, normalize_description
+from .models import Account, Category, CategoryRule, InstallmentGroup, Recurrence, Transaction
 
 CENT = Decimal("0.01")
 ZERO = Decimal("0")
@@ -220,3 +221,75 @@ def materialize_user_recurrences(user, until_date: date | None = None) -> int:
     for recurrence in Recurrence.objects.filter(user=user, is_active=True):
         total += materialize_recurrence(recurrence, until_date)
     return total
+
+
+def build_import_preview(user, parsed) -> list[dict]:
+    rules = {
+        (rule.kind, rule.pattern): str(rule.category_id)
+        for rule in CategoryRule.objects.filter(user=user).select_related("category")
+    }
+    existing_keys = set(
+        Transaction.objects.filter(
+            user=user, idempotency_key__startswith="ofx:", deleted_at__isnull=True
+        ).values_list("idempotency_key", flat=True)
+    )
+
+    preview: list[dict] = []
+    for item in parsed.transactions:
+        pattern = normalize_description(item.description)
+        key = idempotency_key(parsed.account_id, item.fitid)
+        preview.append(
+            {
+                "kind": item.kind,
+                "amount": item.amount,
+                "transaction_date": item.transaction_date,
+                "description": item.description,
+                "fitid": item.fitid,
+                "pattern": pattern,
+                "category_id": rules.get((item.kind, pattern)),
+                "duplicate": key in existing_keys,
+            }
+        )
+    return preview
+
+
+def apply_import(*, user, account, source_account_id: str, rows: list[dict]) -> tuple[int, int]:
+    created = 0
+    skipped = 0
+    with db_transaction.atomic():
+        for row in rows:
+            key = idempotency_key(source_account_id, row["fitid"])
+            if Transaction.objects.filter(
+                user=user, idempotency_key=key, deleted_at__isnull=True
+            ).exists():
+                skipped += 1
+                continue
+
+            category_id = row.get("category_id")
+            category = None
+            if category_id:
+                category = Category.objects.filter(user=user, pk=category_id).first()
+
+            pattern = normalize_description(row.get("description", ""))
+            if category:
+                CategoryRule.objects.update_or_create(
+                    user=user,
+                    kind=row["kind"],
+                    pattern=pattern,
+                    defaults={"category": category},
+                )
+
+            Transaction.objects.create(
+                user=user,
+                account=account,
+                category=category,
+                kind=row["kind"],
+                amount=row["amount"],
+                description=row.get("description", ""),
+                transaction_date=row["transaction_date"],
+                status=Transaction.Status.PAID,
+                paid_at=row["transaction_date"],
+                idempotency_key=key,
+            )
+            created += 1
+    return created, skipped

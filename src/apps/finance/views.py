@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -17,12 +18,15 @@ from apps.core.dates import month_start
 from .forms import (
     AccountForm,
     CategoryForm,
+    ImportForm,
     InstallmentForm,
     RecurrenceForm,
     TransactionForm,
 )
+from .importers import ImportError as ImportParseError
+from .importers import ParsedStatement, ParsedTransaction, parse_ofx
 from .models import Account, Category, Recurrence, Transaction
-from .services import materialize_user_recurrences
+from .services import apply_import, build_import_preview, materialize_user_recurrences
 
 
 def _owned(request, model, pk):
@@ -316,3 +320,103 @@ def account_archive(request, pk):
     account.save(update_fields=["archived_at", "updated_at"])
     messages.success(request, "Conta arquivada.")
     return redirect("finance:accounts")
+
+
+def _serialize_import(parsed: ParsedStatement, account) -> dict:
+    return {
+        "account_id": str(account.pk),
+        "source_account_id": parsed.account_id,
+        "transactions": [
+            {
+                "kind": item.kind,
+                "amount": str(item.amount),
+                "transaction_date": item.transaction_date.isoformat(),
+                "description": item.description,
+                "fitid": item.fitid,
+            }
+            for item in parsed.transactions
+        ],
+    }
+
+
+def _deserialize_import(data: dict) -> ParsedStatement:
+    transactions = [
+        ParsedTransaction(
+            kind=item["kind"],
+            amount=Decimal(item["amount"]),
+            transaction_date=date.fromisoformat(item["transaction_date"]),
+            description=item["description"],
+            fitid=item["fitid"],
+        )
+        for item in data["transactions"]
+    ]
+    return ParsedStatement(account_id=data["source_account_id"], transactions=transactions)
+
+
+@login_required
+def import_start(request):
+    form = ImportForm(request.POST or None, request.FILES or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        try:
+            parsed = parse_ofx(form.cleaned_data["file"].read())
+        except ImportParseError as exc:
+            form.add_error("file", str(exc))
+        else:
+            request.session["import_data"] = _serialize_import(parsed, form.cleaned_data["account"])
+            return redirect("finance:import_preview")
+    return render(request, "finance/import_form.html", {"form": form})
+
+
+@login_required
+def import_preview(request):
+    data = request.session.get("import_data")
+    if not data:
+        return redirect("finance:import_start")
+
+    parsed = _deserialize_import(data)
+    preview = build_import_preview(request.user, parsed)
+    return render(
+        request,
+        "finance/import_preview.html",
+        {
+            "preview": preview,
+            "categories": Category.objects.filter(
+                user=request.user, archived_at__isnull=True
+            ).order_by("kind", "name"),
+        },
+    )
+
+
+@login_required
+@require_POST
+def import_confirm(request):
+    data = request.session.get("import_data")
+    if not data:
+        return redirect("finance:import_start")
+
+    account = Account.objects.filter(user=request.user, pk=data["account_id"]).first()
+    rows: list[dict] = []
+    for index, item in enumerate(data["transactions"]):
+        category_id = request.POST.get(f"category_{index}") or None
+        rows.append(
+            {
+                "fitid": item["fitid"],
+                "kind": item["kind"],
+                "amount": Decimal(item["amount"]),
+                "transaction_date": date.fromisoformat(item["transaction_date"]),
+                "description": item["description"],
+                "category_id": category_id,
+            }
+        )
+
+    created, skipped = apply_import(
+        user=request.user,
+        account=account,
+        source_account_id=data["source_account_id"],
+        rows=rows,
+    )
+    request.session.pop("import_data", None)
+    messages.success(request, f"Importação concluída: {created} lançamento(s) criado(s).")
+    if skipped:
+        messages.info(request, f"{skipped} lançamento(s) ignorado(s) por já existirem.")
+    return redirect("finance:transactions")

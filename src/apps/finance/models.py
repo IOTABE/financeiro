@@ -55,6 +55,41 @@ class Category(models.Model):
         return self.name
 
 
+class CategoryRule(models.Model):
+    class Kind(models.TextChoices):
+        INCOME = "income", "Receita"
+        EXPENSE = "expense", "Despesa"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="import_rules", verbose_name="usuário"
+    )
+    kind = models.CharField("tipo", max_length=10, choices=Kind.choices)
+    pattern = models.CharField("padrão", max_length=200)
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        related_name="import_rules",
+        verbose_name="categoria",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "regra de categorização"
+        verbose_name_plural = "regras de categorização"
+        ordering = ("kind", "pattern")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "kind", "pattern"], name="uq_import_rule_user_kind_pattern"
+            )
+        ]
+        indexes = [models.Index(fields=["user", "kind", "pattern"])]
+
+    def __str__(self) -> str:
+        return f"{self.pattern} → {self.category}"
+
+
 class Account(models.Model):
     class Type(models.TextChoices):
         CHECKING = "checking", "Conta corrente"
