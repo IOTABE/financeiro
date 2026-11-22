@@ -5,12 +5,14 @@ description = "Gestao financeira pessoal com plano de regularizacao de dividas."
 requires-python = ">=3.12"
 dependencies = [
     "argon2-cffi>=23,<26",
+    "bandit>=1.7,<2",
     "black>=24,<26",
     "celery[redis]>=5.4,<6",
     "coverage>=7,<8",
     "django>=5.2,<5.3",
     "factory-boy>=3.3,<4",
     "gunicorn>=23,<24",
+    "pip-audit>=2.7,<3",
     "psycopg[binary]>=3.2,<4",
     "pytest>=8,<9",
     "pytest-django>=4.9,<5",

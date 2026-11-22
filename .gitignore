@@ -19,3 +19,6 @@ htmlcov/
 src/static/vendor/
 celerybeat-schedule*
 celerybeat.pid
+
+*.ofx
+*.pdf
